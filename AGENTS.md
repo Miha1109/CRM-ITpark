@@ -29,5 +29,9 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 
-- Device data is a static JSON (src/data/assets.json) converted from the inventory-hub CSV export; check_flag parsing lives in src/lib/asset.ts — prototype until the CRM API (docs/API_CONTRACT_CRM.md) is wired.
-- docs/API_CONTRACT_CRM.md is the source of truth for the inventory-hub ↔ CRM contract; extend it when UI needs new fields.
+- Normalize imported antivirus fields in a browser-safe helper; never derive actual protection from generated software, agent health, or antivirus database freshness because these are separate facts.
+- Export inventory CSV from the same normalized asset model used in device views so source-specific antivirus fields stay consistent.
+- Partition antivirus detail sections by the reported source, not product name; only KSC-sourced records belong under KSC to avoid attributing other inventories to KSC.
+- Agent installation requires an explicit imported boolean; keep availability separate and label generated availability as a sample because non-response and source membership do not prove installation or absence.
+- AI program matching is authenticated and checks a protected role row server-side before calling the gateway; its advisory results never overwrite inventory facts or infer protection status.
+- Preserve separate source and update timestamps for imported antivirus names and versions; absent timestamps remain unknown, not the time of AI classification.

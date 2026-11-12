@@ -1,16 +1,20 @@
 import raw from "@/data/inventory.json";
+import { antivirusOf, otherAntivirusPrograms, type Antivirus, type AntivirusInput } from "@/lib/antivirus";
 
-export type RawRow = {
+export type RawRow = AntivirusInput & {
   id: number; ip: string; name: string; inv: string; os: string; arch: string; disk: string;
   diskType: string; ram: string; memType: string; mbManuf: string; mbModel: string; cpu: string;
   cores: string; monitors: string; printers: string; user: string; mac: string; serial: string;
   source: string; observed: string; flag: string;
+  ksc_agent_installed?: boolean;
 };
 export type AssetStatus = "active" | "repair" | "decommissioned";
 export type SyncState = "synced" | "pending" | "conflict";
 export type Discrepancy = { kind: "nagent" | "ip" | "name" | "anchor" | "new" | "other"; text: string };
 
 export type Asset = RawRow & {
+  antivirus: Antivirus;
+  otherAntiviruses: Antivirus[];
   status: AssetStatus; dept: string; sync: SyncState; discrepancies: Discrepancy[];
   mol: string; molPosition: string; owner: string; employeeStatus: "работает" | "уволен";
   ksc: { agent: "активен" | "не отвечает" | "нет агента"; nagentAt: string; visibleAt: string; avBases: string; avStatus: "актуальны" | "устарели"; policy: string; group: string; version: string };
@@ -33,7 +37,11 @@ function rng(seed: number) {
   let s = seed * 2654435761 % 4294967296;
   return () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
 }
-const pick = <T,>(r: () => number, a: T[]) => a[Math.floor(r() * a.length)]!;
+const pick = <T,>(r: () => number, a: T[]): T => {
+  const value = a[Math.floor(r() * a.length)];
+  if (value === undefined) throw new Error("Cannot pick from an empty list");
+  return value;
+};
 const SURN = ["Тальков И.П.", "Ковальчук А.С.", "Мельник О.В.", "Жук Д.Н.", "Новик Е.А.", "Шевчук В.М.", "Кравченко Н.И.", "Лукашевич С.Г.", "Бондарь Т.Ю.", "Савицкий П.Л."];
 const POS = ["Инженер", "Ведущий инженер", "Бухгалтер", "Начальник отдела", "Мастер участка", "Экономист", "Программист"];
 const SW: [string, string, string][] = [
@@ -74,7 +82,7 @@ function enrich(row: RawRow): Asset {
   const sw = SW.filter(() => r() < 0.7).map(([name, version, vendor]) => ({ name, version, vendor }));
   const ou = `OU=${dept.replace(/\s/g, "_")},OU=Computers,DC=sbyt,DC=minsk,DC=energo,DC=net`;
   return {
-    ...row, status, dept, sync, discrepancies: disc, mol, molPosition: pick(r, POS),
+    ...row, antivirus: antivirusOf(row), otherAntiviruses: otherAntivirusPrograms(row, antivirusOf(row)), status, dept, sync, discrepancies: disc, mol, molPosition: pick(r, POS),
     owner: "РУП «Минскэнерго» — Энергосбыт", employeeStatus: r() < 0.05 ? "уволен" : "работает",
     ksc: {
       agent: row.source === "AD" ? "нет агента" : nagentLag > 10 ? "не отвечает" : "активен",

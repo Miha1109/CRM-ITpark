@@ -5,6 +5,11 @@ import { getAsset, splitList, type Asset } from "@/lib/assets";
 import { Panel, Pill } from "@/components/crm/Shell";
 import { StatusBadge, SyncBadge, SourceBadge } from "@/components/crm/badges";
 import { cn } from "@/lib/utils";
+import { antivirusRows } from "@/components/crm/AntivirusDetails";
+import { antivirusSections } from "@/lib/antivirus";
+import { Button } from "@/components/ui/button";
+import { agentInstallation, agentAvailability } from "@/lib/ksc-agent";
+import { AntivirusAi } from "@/components/crm/AntivirusAi";
 
 export const Route = createFileRoute("/assets/$id")({
   loader: ({ params }) => { const a = getAsset(Number(params.id)); if (!a) throw notFound(); return { id: a.id, name: a.name }; },
@@ -19,13 +24,14 @@ export const Route = createFileRoute("/assets/$id")({
   errorComponent: ({ error }) => <div role="alert">{String(error)}</div>,
 });
 
-const TABS = ["Сводка", "TNI", "KSC", "Active Directory", "MeshCentral", "История"] as const;
+const TABS = ["Сводка", "TNI", "Антивирус", "Active Directory", "MeshCentral", "История"] as const;
 const DISC_TITLE = { nagent: "Просрочен nagent", ip: "Несоответствие IP", name: "Несоответствие имени", anchor: "Нет сильных якорей", new: "Новое устройство", other: "Проверка данных" };
 
 function Card() {
   const { id } = Route.useLoaderData();
-  const a = getAsset(id)!;
+  const a = getAsset(id);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Сводка");
+  if (!a) throw notFound();
   return (
     <>
       <Link to="/assets" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Реестр</Link>
@@ -44,11 +50,11 @@ function Card() {
           <div><div className="font-semibold">{DISC_TITLE[d.kind]}</div><div className="text-muted-foreground">{d.text}</div></div>
         </div>))}</div>}
       <div className="mb-4 flex gap-1 overflow-x-auto border-b">
-        {TABS.map((t) => <button key={t} onClick={() => setTab(t)} className={cn("whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium", tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{t}</button>)}
+        {TABS.map((t) => <Button variant="ghost" key={t} onClick={() => setTab(t)} aria-pressed={tab === t} className={cn("h-10 rounded-none border-b-2 px-4 py-2 text-sm font-medium", tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{t}</Button>)}
       </div>
       {tab === "Сводка" && <Summary a={a} />}
       {tab === "TNI" && <Tni a={a} />}
-      {tab === "KSC" && <Ksc a={a} />}
+      {tab === "Антивирус" && <AntivirusTab a={a} />}
       {tab === "Active Directory" && <Ad a={a} />}
       {tab === "MeshCentral" && <Mesh a={a} />}
       {tab === "История" && <History a={a} />}
@@ -57,7 +63,7 @@ function Card() {
 }
 
 function KV({ rows }: { rows: [string, ReactNode][] }) {
-  return <dl className="divide-y text-sm">{rows.map(([k, v]) => <div key={k} className="grid grid-cols-[180px_1fr] gap-3 px-4 py-2.5"><dt className="text-muted-foreground">{k}</dt><dd className="break-words font-mono text-[13px]">{v || "—"}</dd></div>)}</dl>;
+  return <dl className="divide-y text-sm">{rows.map(([k, v]) => <div key={k} className="grid grid-cols-1 gap-1 px-4 py-2.5 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)] sm:gap-3"><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 break-words font-mono text-[13px]">{v || "—"}</dd></div>)}</dl>;
 }
 
 function Summary({ a }: { a: Asset }) {
@@ -68,6 +74,7 @@ function Summary({ a }: { a: Asset }) {
         <KV rows={[["Инвентарный №", a.inv], ["Имя ПК", a.name], ["ОС", `${a.os} ${a.arch}`], ["ЦП", a.cpu && `${a.cpu} · ${a.cores} ядер`], ["ОЗУ", a.ram && `${a.ram} ГБ · ${a.memType}`], ["Накопители", a.disk && `${a.disk} · ${a.diskType}`], ["IP-адрес", a.ip], ["MAC-адрес", a.mac], ["Серийный №", a.serial], ["Текущий пользователь", a.user]]} />
       </Panel>
       <div className="space-y-4">
+        <Panel title="Антивирус"><KV rows={antivirusRows(a.antivirus)} /></Panel>
         <Panel title="CRM-поля" subtitle="Заполняются CRM / 1С, не перезаписываются синхронизацией" actions={<Lock className="h-4 w-4 text-muted-foreground" />}>
           <KV rows={[["МОЛ", a.mol], ["Должность", a.molPosition], ["Владелец", a.owner], ["Статус сотрудника", <Pill tone={a.employeeStatus === "работает" ? "success" : "danger"}>{a.employeeStatus}</Pill>]]} />
         </Panel>
@@ -93,11 +100,26 @@ function Tni({ a }: { a: Asset }) {
     </div>
   );
 }
-function Ksc({ a }: { a: Asset }) {
+function AntivirusTab({ a }: { a: Asset }) {
   const k = a.ksc;
-  return <Panel title="Kaspersky Security Center" subtitle="10.177.105.41:13299" className="max-w-3xl"><KV rows={[
-    ["Статус агента", <Pill tone={k.agent === "активен" ? "success" : "danger"}>{k.agent}</Pill>], ["Последний nagent", k.nagentAt], ["Последняя видимость", k.visibleAt],
-    ["Антивирусные базы", <span>{k.avBases} <Pill tone={k.avStatus === "актуальны" ? "success" : "warning"}>{k.avStatus}</Pill></span>], ["Политика", k.policy], ["Группа администрирования", k.group], ["Версия KES", k.version]]} /></Panel>;
+  const installed = agentInstallation(a.ksc_agent_installed);
+  const available = agentAvailability(k.agent);
+  const sections = antivirusSections(a.antivirus);
+  return <div className="max-w-4xl space-y-6">
+    <section aria-labelledby="ksc-heading">
+      <div className="mb-3"><h2 id="ksc-heading" className="text-lg font-semibold">KSC</h2><p className="text-xs text-muted-foreground">Kaspersky Security Center · 10.177.105.41:13299</p></div>
+      {sections.ksc ? <KV rows={antivirusRows(sections.ksc)} /> : <p className="border-b px-4 py-3 text-sm text-muted-foreground">Данные об антивирусе из KSC не получены.</p>}
+      <KV rows={[
+    ["Агент KSC установлен", <Pill tone={installed === "установлен" ? "success" : installed === "не установлен" ? "danger" : "neutral"}>{installed}</Pill>],
+    ["Доступность агента (пример)", <Pill tone={available === "отвечает" ? "success" : available === "не отвечает" ? "warning" : "neutral"}>{available}</Pill>], ["Последний nagent", k.nagentAt], ["Последняя видимость", k.visibleAt],
+    ["Антивирусные базы", <span>{k.avBases} <Pill tone={k.avStatus === "актуальны" ? "success" : "warning"}>{k.avStatus}</Pill></span>], ["Политика", k.policy], ["Группа администрирования", k.group], ["Версия KES", k.version]]} />
+    </section>
+    <section aria-labelledby="other-antivirus-heading">
+      <h2 id="other-antivirus-heading" className="mb-3 text-lg font-semibold">Иные антивирусы</h2>
+      {a.otherAntiviruses.length ? a.otherAntiviruses.map((av, i) => <div key={`${av.name}-${i}`} className="mb-4"><KV rows={antivirusRows(av, true)} /></div>) : <p className="px-4 py-3 text-sm text-muted-foreground">Данные об иных антивирусах не получены.</p>}
+    </section>
+    <AntivirusAi assetId={a.id} />
+  </div>;
 }
 function Ad({ a }: { a: Asset }) {
   return <Panel title="Active Directory" subtitle="sbyt.minsk.energo.net" className="max-w-4xl"><KV rows={[

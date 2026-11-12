@@ -1,0 +1,11 @@
+# Antivirus data
+- [x] Add registry filters for antivirus and protection status.
+- [x] Show source and last-updated date for each other-antivirus program name and version.
+- [x] Add administrator-only AI matching of installed programs with antivirus names, versions and uncertainty explanations; live model response verified.
+- [ ] Assign administrator and verify signed-in AI flow — waiting for the user's account email; no auth users exist yet.
+- [ ] Save a clean source copy of the project to Google Drive.
+- [x] Separate confirmed agent installation from agent availability in the device card.
+- [x] Rename the device tab to Antivirus and separate KSC data from other antivirus data.
+- [x] Add antivirus fields to the inventory model, registry, device summary and KSC tab.
+- [x] Add CSV export with the four antivirus columns and verify mapping and the user flow.
+- [ ] Update external inventory-hub scripts — blocked: scripts and source KSC files are not present in this project.

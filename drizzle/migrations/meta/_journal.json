@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794393135815,
+      "tag": "0000_antivirus_ai_admin_access",
+      "breakpoints": true
+    }
+  ]
+}
