@@ -151,6 +151,54 @@ export const SYSTEM_PRESETS: Record<SystemCode, PresetConfig> = {
   },
 };
 
+export interface ProtocolOption {
+  value: string;
+  label: string;
+  port: string;
+  useSsl: boolean;
+}
+
+export const SYSTEM_PROTOCOLS: Record<SystemCode, ProtocolOption[]> = {
+  AD: [
+    { value: "LDAPS", label: "LDAPS (защищённый) — порт 636 (SSL)", port: "636", useSsl: true },
+    { value: "LDAP", label: "LDAP (стандартный) — порт 389", port: "389", useSsl: false },
+    { value: "LDAPS GC", label: "Global Catalog LDAPS — порт 3269 (SSL)", port: "3269", useSsl: true },
+    { value: "LDAP GC", label: "Global Catalog LDAP — порт 3268", port: "3268", useSsl: false },
+    { value: "custom", label: "Другой протокол (вручную)", port: "636", useSsl: true },
+  ],
+  KSC: [
+    { value: "API (HTTP/REST)", label: "KSC OpenAPI (REST) — порт 13299 (SSL)", port: "13299", useSsl: true },
+    { value: "HTTP/REST", label: "HTTP / REST — порт 8080 (без SSL)", port: "8080", useSsl: false },
+    { value: "HTTPS/REST", label: "HTTPS / REST — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "custom", label: "Другой протокол (вручную)", port: "13299", useSsl: true },
+  ],
+  TNI: [
+    { value: "inventory-hub", label: "inventory-hub (SMB) — порт 445", port: "445", useSsl: false },
+    { value: "HTTP API", label: "HTTP API — порт 80", port: "80", useSsl: false },
+    { value: "HTTPS API", label: "HTTPS API — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "custom", label: "Другой протокол (вручную)", port: "445", useSsl: false },
+  ],
+  Mesh: [
+    { value: "WebSocket API", label: "WebSocket Secure (WSS) — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "WebSocket (WS)", label: "WebSocket (WS) — порт 80", port: "80", useSsl: false },
+    { value: "HTTPS API", label: "HTTPS REST API — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
+  ],
+  "1C": [
+    { value: "OData / REST", label: "OData / REST (HTTPS) — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "OData (HTTP)", label: "OData / REST (HTTP) — порт 80", port: "80", useSsl: false },
+    { value: "1C Cluster", label: "Кластер 1C — порт 1541", port: "1541", useSsl: false },
+    { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
+  ],
+  custom: [
+    { value: "HTTPS / REST", label: "HTTPS / REST — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "HTTP / REST", label: "HTTP / REST — порт 80", port: "80", useSsl: false },
+    { value: "WebSocket (WSS)", label: "WebSocket WSS — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "gRPC", label: "gRPC — порт 50051 (SSL)", port: "50051", useSsl: true },
+    { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
+  ],
+};
+
 interface IntegrationConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -198,6 +246,7 @@ export function IntegrationConfigDialog({
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isCustomProto, setIsCustomProto] = useState(false);
 
   // Reset form when item changes or dialog opens
   useEffect(() => {
@@ -226,11 +275,13 @@ export function IntegrationConfigDialog({
       }
       setTestResult(null);
       setErrors({});
+      setIsCustomProto(false);
       setShowPassword(false);
     }
   }, [open, item]);
 
   const applyPreset = (sys: SystemCode) => {
+    setIsCustomProto(false);
     setSelectedSystem(sys);
     const p = SYSTEM_PRESETS[sys];
     setCode(p.code === "custom" ? "EXT" : p.code);
@@ -255,6 +306,30 @@ export function IntegrationConfigDialog({
       }
     }
     setTestResult(null);
+  };
+
+  const handleProtocolChange = (selectedVal: string) => {
+    if (selectedVal === "custom") {
+      setIsCustomProto(true);
+      return;
+    }
+    setIsCustomProto(false);
+    const protocols = SYSTEM_PROTOCOLS[selectedSystem] || SYSTEM_PROTOCOLS.custom;
+    const matched = protocols.find((p) => p.value === selectedVal);
+    if (matched) {
+      setProto(matched.value);
+      setPort(matched.port);
+      setUseSsl(matched.useSsl);
+      if (errors.port) {
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.port;
+          return next;
+        });
+      }
+    } else {
+      setProto(selectedVal);
+    }
   };
 
   const handleSystemChange = (value: string) => {
@@ -456,16 +531,38 @@ export function IntegrationConfigDialog({
 
           {/* Protocol, Host & Port */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
-            <div className="sm:col-span-4">
+            <div className="sm:col-span-5">
               <Label className="text-xs">Протокол</Label>
-              <Input
-                value={proto}
-                onChange={(e) => setProto(e.target.value)}
-                placeholder="API (HTTP/REST)"
-                className="mt-1"
-              />
+              <Select
+                value={
+                  isCustomProto ||
+                  !SYSTEM_PROTOCOLS[selectedSystem]?.some((p) => p.value === proto)
+                    ? "custom"
+                    : proto
+                }
+                onValueChange={handleProtocolChange}
+              >
+                <SelectTrigger className="mt-1 w-full text-xs">
+                  <SelectValue placeholder="Выберите протокол" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(SYSTEM_PROTOCOLS[selectedSystem] || SYSTEM_PROTOCOLS.custom).map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {isCustomProto && (
+                <Input
+                  value={proto}
+                  onChange={(e) => setProto(e.target.value)}
+                  placeholder="Введите протокол (например, gRPC)"
+                  className="mt-1.5 font-mono text-xs"
+                />
+              )}
             </div>
-            <div className="sm:col-span-6">
+            <div className="sm:col-span-5">
               <Label className="text-xs">Хост / IP-адрес</Label>
               <Input
                 value={host}
