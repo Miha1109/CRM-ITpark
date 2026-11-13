@@ -2,7 +2,7 @@
 
 > **Документ для передачи проекта разработчику или языковой модели (AI)**  
 > Проект: **CRM IT-парк (Asset Hub, Device Insight & Antivirus Hub)**  
-> Дата актуализации: **12 ноября 2026**
+> Дата актуализации: **13 ноября 2026**
 
 ---
 
@@ -95,7 +95,7 @@
 - **Фреймворк**: React 19, TypeScript
 - **Маршрутизация**: TanStack Start / TanStack Router
 - **Стилизация**: Tailwind CSS v4, Radix UI Primitives, Lucide Icons
-- **Таблицы и данные**: TanStack Table, Recharts, Drizzle ORM
+- **Таблицы и визуализация**: TanStack Table, Recharts, Lucide Icons (без Drizzle ORM и внешних СУБД на фронтенде)
 
 ### Команды:
 
@@ -134,3 +134,60 @@ bun test     # или npm test
 4. **Безопасность**:
    - Никогда не отдавать на фронтенд секреты, сервисные токены или `FIELD_ENCRYPTION_KEY`.
    - Учетные данные внешних интеграций хранить исключительно в зашифрованных полях БД (`secret_encrypted`).
+
+
+---
+
+## 6. Что ещё не сделано (Backlog для следующего разработчика / ИИ)
+
+1. **Форма настроек интеграций (`feature/integration-config-form`)**:
+   - Ветка `feature/integration-config-form` содержит готовый UI-компонент `IntegrationConfigDialog.tsx` (774 строки) с формами для AD, KSC, TNI, MeshCentral и 1С, а также кнопками проверки сетевой доступности.
+   - **Задача**: выполнить `git rebase main`, проверить типы и валидацию, подключить вызовы к серверному эндпоинту `/api/v2/integrations/`.
+2. **Интерактивное редактирование защищённых CRM-полей**:
+   - Поля `mol`, `owner`, `mol_position`, `employee_status` ведутся вручную в CRM.
+   - **Задача**: добавить в `Device Insight Card` модальное окно/инлайн-форму изменения этих полей с отправкой запроса `PATCH /api/v2/assets/{id}/` и сохранением в Django.
+3. **Реализация второстепенных страниц меню (сейчас заглушки)**:
+   - Разделы «Сотрудники», «Лицензии», «Расходники», «Отчёты», «Журнал аудита» на данный момент оформлены как заглушки.
+   - **Задача**: по мере готовности бэкенда наполнить их функционалом либо скрыть пункты через права доступа `perm_set`.
+4. **Скрипты сборщика данных (inventory-hub)**:
+   - Внешний сервис сбора данных (Python/PowerShell скрипты опроса сканеров) разворачивается на сервере сбора и не входит в репозиторий клиентского интерфейса.
+
+---
+
+## 7. Коллизии, противоречия и архитектурные нюансы
+
+1. **Отставание ветки `feature/integration-config-form` от `main`**:
+   - Ветка ответвилась до удаления AntivirusAi и Drizzle ORM. При слиянии необходимо проследить, чтобы удалённый код (`ai`, `@ai-sdk/openai`, `drizzle-orm`) не был случайно возвращён.
+2. **Разделение зон ответственности источников данных (Single Source of Truth)**:
+   - Железо и спецификации (TNI) не должны перезаписывать кадровые привязки CRM (`mol`, `owner`).
+   - KSC отвечает исключительно за статус защиты и версию антивируса.
+   - AD отвечает исключительно за доменный статус, OU и BitLocker.
+3. **Папка `supabase/`**:
+   - Оставлена как шаблонная структура начального скаффолдинга. В клиентском коде зависимости от неё отсутствуют.
+
+---
+
+## 8. Используемые API и межсистемное взаимодействие (Получение данных из других систем)
+
+### Архитектура информационного обмена:
+1. `Внешние сканеры (AD, KSC, TNI, MeshCentral, 1C)` опрашиваются агентом сбора `inventory-hub`.
+2. `inventory-hub` агрегирует данные в единый массив `assets[]` по контракту v2.2 и передаёт через `POST /api/v2/assets/bulk_sync/` в Django CRM.
+3. `Django CRM Backend` сохраняет данные в БД MariaDB, обогащает их CRM-полями (`mol`, `owner`) и отдаёт фронтенду через REST API.
+4. `Frontend` отображает данные в реестре, карточке устройства и мониторе интеграций.
+
+### 1. Эндпоинты бэкенда CRM (Django REST Framework v2):
+- `GET /api/v2/assets/` — список активов с поиском, пагинацией и фильтрами по статусу/антивирусу.
+- `GET /api/v2/assets/{id}/` — детальный паспорт устройства со всеми вкладками (TNI, KSC, AD, Mesh, история).
+- `PATCH /api/v2/assets/{id}/` — сохранение отредактированных полей `mol`, `owner`, `mol_position`, `employee_status`.
+- `POST /api/v2/assets/bulk_sync/` — приём данных от `inventory-hub` (API-контракт v2.2).
+- `GET /api/v2/assets/sync_status/` — статус последней фоновой синхронизации.
+- `POST /api/v2/assets/export_csv/` — выгрузка инвентаризационного CSV.
+- `POST /api/v2/login/` / `POST /api/v2/logout/` / `GET /api/v2/me/` — сессионная авторизация и права (`perm_set`).
+- `GET /api/v2/integrations/` / `POST /api/v2/integrations/test/` — управление коннекторами и проверка пинга.
+
+### 2. Прямые протоколы внешних систем:
+- **Kaspersky Security Center (KSC)**: OpenAPI REST HTTPS порт 13292 (`POST /api/v1.0/login`, `POST /api/v1.0/HostGroup.FindHosts`, `POST /api/v1.0/HostGroup.GetHostInfo`).
+- **Active Directory (AD / DC)**: LDAP/LDAPS TCP порт 389/636 (поиск по `(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`, чтение `dNSHostName`, `distinguishedName`, `operatingSystem`, `lastLogonTimestamp`).
+- **Total Network Inventory (TNI)**: чтение БД SQLite `inventory.tni` или экспорт отчётов сканирования в XML/CSV.
+- **MeshCentral**: REST API / WebSocket порт 443 (`GET /api/meshagents`, `GET /api/meshdevices`, `POST /api/meshcommand`).
+- **1С:Предприятие (ЗУП)**: 1C OData REST API (`GET /odata/standard.odata/Catalog_Сотрудники`, `InformationRegister_КадроваяИсторияСотрудников`).
