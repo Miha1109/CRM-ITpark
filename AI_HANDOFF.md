@@ -138,56 +138,255 @@ bun test     # или npm test
 
 ---
 
-## 6. Что ещё не сделано (Backlog для следующего разработчика / ИИ)
-
-1. **Форма настроек интеграций (`feature/integration-config-form`)**:
-   - Ветка `feature/integration-config-form` содержит готовый UI-компонент `IntegrationConfigDialog.tsx` (774 строки) с формами для AD, KSC, TNI, MeshCentral и 1С, а также кнопками проверки сетевой доступности.
-   - **Задача**: выполнить `git rebase main`, проверить типы и валидацию, подключить вызовы к серверному эндпоинту `/api/v2/integrations/`.
-2. **Интерактивное редактирование защищённых CRM-полей**:
-   - Поля `mol`, `owner`, `mol_position`, `employee_status` ведутся вручную в CRM.
-   - **Задача**: добавить в `Device Insight Card` модальное окно/инлайн-форму изменения этих полей с отправкой запроса `PATCH /api/v2/assets/{id}/` и сохранением в Django.
-3. **Реализация второстепенных страниц меню (сейчас заглушки)**:
-   - Разделы «Сотрудники», «Лицензии», «Расходники», «Отчёты», «Журнал аудита» на данный момент оформлены как заглушки.
-   - **Задача**: по мере готовности бэкенда наполнить их функционалом либо скрыть пункты через права доступа `perm_set`.
-4. **Скрипты сборщика данных (inventory-hub)**:
-   - Внешний сервис сбора данных (Python/PowerShell скрипты опроса сканеров) разворачивается на сервере сбора и не входит в репозиторий клиентского интерфейса.
 
 ---
 
-## 7. Коллизии, противоречия и архитектурные нюансы
+## 6. Приоритизированная матрица задач (Backlog, зависимости, риски и DoD)
 
-1. **Отставание ветки `feature/integration-config-form` от `main`**:
-   - Ветка ответвилась до удаления AntivirusAi и Drizzle ORM. При слиянии необходимо проследить, чтобы удалённый код (`ai`, `@ai-sdk/openai`, `drizzle-orm`) не был случайно возвращён.
-2. **Разделение зон ответственности источников данных (Single Source of Truth)**:
-   - Железо и спецификации (TNI) не должны перезаписывать кадровые привязки CRM (`mol`, `owner`).
-   - KSC отвечает исключительно за статус защиты и версию антивируса.
-   - AD отвечает исключительно за доменный статус, OU и BitLocker.
-3. **Папка `supabase/`**:
-   - Оставлена как шаблонная структура начального скаффолдинга. В клиентском коде зависимости от неё отсутствуют.
+Все оставшиеся работы ранжированы по 4 уровням приоритета с фиксацией зависимостей, проектных рисков и критериев готовности (Definition of Done).
+
+| Уровень | Задача | Зависимости | Риски | Критерии готовности (DoD) |
+|---|---|---|---|---|
+| **P1** | **1.1. Эндпоинт приёма инвентаря `POST /api/v2/inventory-hub/sync/` в Django** | Модели `Asset` в Django, БД MariaDB | Коллизии дедупликации; ошибочная перезапись МОЛ сканерами | 1. Принимает боевой пакет из 1 388 хостов без исключений.<br>2. Возвращает статус 200 (или 207 при конфликтах).<br>3. Поля `mol`, `owner`, `mol_position` гарантированно защищены от перезаписи.<br>4. Покрыт интеграционными тестами Django Test Client. |
+| **P1** | **1.2. Редактирование и сохранение защищённых CRM-полей в карточке устройства** | Задача 1.1, права `can_edit_mol` в CRM | Рассинхронизация с кадровой базой; смена МОЛ без сохранения аудита | 1. В Device Insight Card доступна инлайн-форма / модальное окно редактирования МОЛ, пользователя и статуса.<br>2. Запрос `PATCH /api/v2/assets/{id}/` сохраняет изменения в БД.<br>3. В историю устройства (вкладка Аудит) добавляется запись с датой, автором и старым/новым значением.<br>4. При отсутствии прав кнопки редактирования скрыты. |
+| **P2** | **2.1. Актуализация и интеграция формы настроек (`feature/integration-config-form`)** | Чистый `main`, эндпоинт `/api/v2/integrations/` | Утечка паролей к AD/KSC на клиент; регрессия удалённого кода AntivirusAi/Drizzle | 1. Выполнен `git rebase main` без конфликтов.<br>2. Форма поддерживает ввод и маскирование паролей для AD, KSC, TNI, Mesh, 1C.<br>3. Кнопка «Проверить соединение» отправляет POST на бэкенд и выводит реальный сетевой статус.<br>4. Секреты сохраняются в зашифрованном виде (`secret_encrypted`). |
+| **P2** | **2.2. Обогащение кадровыми данными из 1С:Предприятие (ЗУП/Бухгалтерия)** | Доступ к OData 1C или расписание выгрузок | Таймауты 1С при больших выборках; расхождения в написании ФИО | 1. Реализован Celery-таск сверки справочников по расписанию.<br>2. По инвентарному номеру автоматически сопоставляются МОЛ и должность.<br>3. При статусе сотрудника «Уволен» в карточке устройства и реестре отображается критический алерт.<br>4. Ошибки сопоставления выводятся в отдельный лог. |
+| **P3** | **3.1. Реализация второстепенных страниц бокового меню (замена заглушек)** | Таблицы `License`, `Consumables`, `Employee` в БД | Размытие скоупа первой очереди; затягивание релиза | 1. Разделы «Сотрудники», «Лицензии», «Расходники», «Отчёты» заменены с заглушек на рабочие таблицы.<br>2. Если модуль не готов — пункт меню плавно скрывается через настройки ролей `perm_set`.<br>3. Дизайн и UX согласованы с общим стилем Shell. |
+| **P3** | **3.2. Настройка автоматической синхронизации и фоновых регламентов (Celery)** | Задачи 1.1 и 2.1, запущенный брокер Redis | Наложение параллельных сессий сканирования; пиковая нагрузка на контроллер домена | 1. Настроен регламент ночной синхронизации (Celery Beat, 03:00).<br>2. Реализована блокировка параллельных запусков через распределённый Redis-lock.<br>3. Ведётся детальный журнал в таблице `SyncHistory`.<br>4. При падении синхронизации отправляется уведомление в системный канал. |
+| **P4** | **4.1. Очистка остаточной директории `supabase/` и оптимизация сборки** | Завершение этапа 1 прототипа | Нет | 1. Директория `supabase/` удалена без влияния на тесты и сборку.<br>2. Бандл Vite собран с оптимизированным code-splitting.<br>3. `bun test` выполняет 154 теста со 100% успехом. |
+
 
 ---
 
-## 8. Используемые API и межсистемное взаимодействие (Получение данных из других систем)
+## 7. Детальная спецификация API-контрактов, авторизации и обработки ошибок и межсистемного взаимодействия
 
-### Архитектура информационного обмена:
-1. `Внешние сканеры (AD, KSC, TNI, MeshCentral, 1C)` опрашиваются агентом сбора `inventory-hub`.
-2. `inventory-hub` агрегирует данные в единый массив `assets[]` по контракту v2.2 и передаёт через `POST /api/v2/assets/bulk_sync/` в Django CRM.
-3. `Django CRM Backend` сохраняет данные в БД MariaDB, обогащает их CRM-полями (`mol`, `owner`) и отдаёт фронтенду через REST API.
-4. `Frontend` отображает данные в реестре, карточке устройства и мониторе интеграций.
+В архитектуре CRM IT-парк выделено 7 ключевых контрактов взаимодействия. Ниже приведена спецификация форматов, механизмов авторизации, кодов ошибок и зон ответственности для каждого из них.
 
-### 1. Эндпоинты бэкенда CRM (Django REST Framework v2):
-- `GET /api/v2/assets/` — список активов с поиском, пагинацией и фильтрами по статусу/антивирусу.
-- `GET /api/v2/assets/{id}/` — детальный паспорт устройства со всеми вкладками (TNI, KSC, AD, Mesh, история).
-- `PATCH /api/v2/assets/{id}/` — сохранение отредактированных полей `mol`, `owner`, `mol_position`, `employee_status`.
-- `POST /api/v2/assets/bulk_sync/` — приём данных от `inventory-hub` (API-контракт v2.2).
-- `GET /api/v2/assets/sync_status/` — статус последней фоновой синхронизации.
-- `POST /api/v2/assets/export_csv/` — выгрузка инвентаризационного CSV.
-- `POST /api/v2/login/` / `POST /api/v2/logout/` / `GET /api/v2/me/` — сессионная авторизация и права (`perm_set`).
-- `GET /api/v2/integrations/` / `POST /api/v2/integrations/test/` — управление коннекторами и проверка пинга.
+---
 
-### 2. Прямые протоколы внешних систем:
-- **Kaspersky Security Center (KSC)**: OpenAPI REST HTTPS порт 13292 (`POST /api/v1.0/login`, `POST /api/v1.0/HostGroup.FindHosts`, `POST /api/v1.0/HostGroup.GetHostInfo`).
-- **Active Directory (AD / DC)**: LDAP/LDAPS TCP порт 389/636 (поиск по `(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`, чтение `dNSHostName`, `distinguishedName`, `operatingSystem`, `lastLogonTimestamp`).
-- **Total Network Inventory (TNI)**: чтение БД SQLite `inventory.tni` или экспорт отчётов сканирования в XML/CSV.
-- **MeshCentral**: REST API / WebSocket порт 443 (`GET /api/meshagents`, `GET /api/meshdevices`, `POST /api/meshcommand`).
-- **1С:Предприятие (ЗУП)**: 1C OData REST API (`GET /odata/standard.odata/Catalog_Сотрудники`, `InformationRegister_КадроваяИсторияСотрудников`).
+### Контракт 1: inventory-hub ➔ Django CRM (Приём пакета оборудования)
+
+- **Ответственные системы**:
+  - *Клиент / инициатор*: Сервис сбора `inventory-hub` (отвечает за сбор из TNI/KSC/AD/Mesh, валидацию freshness, дедупликацию и формирование пакета).
+  - *Сервер / обработчик*: `Django CRM Backend` (эндпоинт `/api/v2/inventory-hub/sync/`, отвечает за поиск по якорям S/N и инв.№, обновление технических полей в MariaDB и защиту CRM-полей).
+- **Эндпоинт**: `POST http://crm-app:8000/api/v2/inventory-hub/sync/`
+- **Авторизация**:
+  - Заголовок `Authorization: Bearer <service_token>` (токен сервиса inventory-hub) либо заголовок `X-Internal-Token: <env_secret>`.
+  - Дополнительный контроль: белый список доверенных IP (сеть `10.177.100.0/24` или внутренний Docker bridge).
+- **Формат запроса**:
+  - `Content-Type: application/json; charset=utf-8`
+  - Структура Payload:
+    ```json
+    {
+      "sync_id": "sync-20261113-001",
+      "sync_timestamp": "2026-11-13T08:00:00Z",
+      "source": "inventory-hub",
+      "assets": [
+        {
+          "short_name": "askue-11421n",
+          "ip_address": "10.177.101.97",
+          "inventory_no": "11421",
+          "serial_number": "3C-52-A1-B0-4D-2D",
+          "os_name": "Microsoft Windows 11 Pro",
+          "architecture": "x64",
+          "disk_model": "Apacer AS2280P4 512GB (512 GB)",
+          "disk_type": "SSD",
+          "ram_gb": 16,
+          "mem_type": "DDR4 SDRAM",
+          "mb_manuf": "XN1-160M",
+          "mb_model": "H410M S2H V2",
+          "cpu": "Intel Core i5-1135G7 @ 3.92GHz",
+          "cpu_manufacturer": "Intel",
+          "cpu_model": "Core i5-1135G7 @ 3.92GHz",
+          "cpu_cores": 4,
+          "monitors": "PHL 241V8 (S/N 51315, 15.5\")",
+          "printers": "Xerox WorkCentre 3345 PCL6 [USB001]",
+          "current_user": "SBYT\\Talkov_ip",
+          "mac_address": "74-56-3C-C7-42-4E",
+          "observed_at": "2026-11-13 07:55",
+          "source": "TNI",
+          "check_flag": "ok"
+        }
+      ]
+    }
+    ```
+- **Формат ответов**:
+  - `200 OK`: Успешный приём всего пакета.
+    ```json
+    {
+      "ok": true,
+      "sync_id": "sync-20261113-001",
+      "received": 1388,
+      "created": 12,
+      "updated": 1374,
+      "skipped": 2,
+      "conflicts": 0,
+      "details": { "by_source": { "TNI": 962, "KSC": 424, "AD": 2 } }
+    }
+    ```
+  - `207 Multi-Status`: Частичный приём (выявлены конфликты якорей).
+    ```json
+    {
+      "ok": false,
+      "sync_id": "sync-20261113-001",
+      "received": 1388,
+      "created": 1383,
+      "conflicts": 5,
+      "conflicts_detail": [
+        { "short_name": "STORAGE-01", "ip_address": "10.177.100.60", "reason": "serial 3C-52... уже закреплен за HOST-42 (id=402)" }
+      ]
+    }
+    ```
+- **Обработка ошибок**:
+  - `400 Bad Request`: Невалидный JSON, отсутствие обязательного поля `sync_id` или `assets`.
+  - `401 Unauthorized`: Токен отсутствует, истек или не прошел валидацию в CRM.
+  - `403 Forbidden`: IP отправителя не входит в белый список доверенных подсетей.
+  - `422 Unprocessable Entity`: Массив `assets` содержит записи без обязательных якорей (`short_name` и `ip_address` отсутствуют).
+  - `500 Internal Server Error`: Сбой БД MariaDB или ошибка транзакции. `inventory-hub` повторяет отправку через экспоненциальный бэкофф (3 попытки: 1 мин, 5 мин, 15 мин).
+
+---
+
+### Контракт 2: Django CRM Backend ➔ Frontend (React SPA / Templates)
+
+- **Ответственные системы**:
+  - *Клиент*: React SPA фронтенд (отвечает за рендеринг реестра, карточки устройства, валидацию форм, кэширование TanStack Query).
+  - *Сервер*: Django REST Framework v2 (отвечает за бизнес-логику, разграничение прав доступа через `perm_set`, пагинацию и CSRF-защиту).
+- **Ключевые эндпоинты**:
+  1. `GET /api/v2/assets/?search={q}&antivirus_status={s}&page={p}&page_size=50` — реестр оборудования с фильтрацией.
+  2. `GET /api/v2/assets/{id}/` — детальный паспорт устройства со всеми связанными структурами.
+  3. `PATCH /api/v2/assets/{id}/` — изменение CRM-protected полей:
+     - **Request Payload**:
+       ```json
+       {
+         "mol": "Иванов Иван Иванович",
+         "owner": "Петров Петр Петрович",
+         "mol_position": "Ведущий инженер",
+         "employee_status": "working",
+         "room": "Кабинет 304",
+         "comment": "Закреплен за отделом АСКУЭ"
+       }
+       ```
+     - **Response (200 OK)**: Возвращает обновлённый объект `Asset`.
+  4. `POST /api/v2/login/` и `GET /api/v2/me/` — сессионная аутентификация.
+- **Авторизация**:
+  - Django Session Cookie (`sessionid`) + заголовок `X-CSRFToken` для мутирующих запросов (POST, PATCH, DELETE).
+  - Модель прав `perm_set`: `can_view`, `can_edit_mol`, `can_manage_integrations`, `can_audit`.
+- **Обработка ошибок**:
+  - `400 Bad Request`: Ошибка валидации формы (возвращает `{ "errors": { "field_name": ["Описание ошибки"] } }`).
+  - `401 Unauthorized`: Пользователь не авторизован (фронтенд выполняет редирект на `/login`).
+  - `403 Forbidden`: Недостаточно прав для операции (например, попытка редактирования МОЛ без роли `can_edit_mol`).
+  - `404 Not Found`: Актив с указанным `id` не найден в БД.
+
+---
+
+### Контракт 3: Сервер сбора ➔ Kaspersky Security Center (KSC OpenAPI)
+
+- **Ответственные системы**:
+  - *Клиент*: Адаптер KSC в сервисе сбора `inventory-hub`.
+  - *Сервер*: Сервер администрирования Kaspersky Security Center (порт HTTPS 13292).
+- **Протокол и Эндпоинты**:
+  - `POST https://ksc.local:13292/api/v1.0/login` — получение сессионного токена.
+  - `POST https://ksc.local:13292/api/v1.0/HostGroup.FindHosts` — поиск управляемых хостов.
+  - `POST https://ksc.local:13292/api/v1.0/HostGroup.GetHostInfo` — запрос детальных статусов.
+- **Авторизация**:
+  - Базовая аутентификация в `/api/v1.0/login` учетной записью администратора KSC с правами чтения. Ответ возвращает cookie/токен `Kaspersky-Api-Session`.
+- **Формат запроса и ответа (GetHostInfo)**:
+  - Request: `POST /api/v1.0/HostGroup.GetHostInfo` с телом `{"nHostId": 11421, "pFieldsToReturn": ["strWinHostname", "nNagAgentInstalled", "nAntivirusActive", "tmLastSync"]}`.
+  - Response (200 OK):
+    ```json
+    {
+      "PxgRetVal": {
+        "strWinHostname": "ASKUE-11421N",
+        "nNagAgentInstalled": 1,
+        "nAntivirusActive": 1,
+        "tmLastSync": "2026-11-13T07:45:00Z",
+        "strAntivirusName": "Kaspersky Endpoint Security для Windows",
+        "strAntivirusVer": "12.2.0.485",
+        "tmBasesDate": "2026-11-13T04:00:00Z"
+      }
+    }
+    ```
+- **Обработка ошибок**:
+  - Таймаут соединения: 10 секунд.
+  - Недоступность KSC (Connection Refused): статус KSC помечается `unavailable`, хосты не удаляются из реестра, флаг `agentAvailability` устанавливается в `unknown`.
+
+---
+
+### Контракт 4: Сервер сбора ➔ Active Directory (LDAP / LDAPS)
+
+- **Ответственные системы**:
+  - *Клиент*: LDAP-коннектор в `inventory-hub` (`python-ldap` / `ldap3`).
+  - *Сервер*: Контроллер домена (Domain Controller, порты TCP 389 LDAP / 636 LDAPS).
+- **Авторизация**:
+  - Simple Bind через выделенную сервисную учетную запись `svc_inventory@itpark.local` (чтение атрибутов компьютеров и пользователей).
+- **Формат запроса**:
+  - Base DN: `DC=itpark,DC=local`, Scope: `SUBTREE`.
+  - Filter: `(&(objectCategory=computer)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))`.
+  - Attributes: `sAMAccountName`, `dNSHostName`, `distinguishedName`, `operatingSystem`, `operatingSystemVersion`, `lastLogonTimestamp`, `whenCreated`, `msTPM-OwnerInformation`.
+- **Формат ответа**:
+  - Набор LDAP-записей (`LDAPSearchResultEntry`). Значение `lastLogonTimestamp` конвертируется из формата Windows FileTime (100-нс интервалы с 1601 г.) в стандартный ISO 8601.
+- **Обработка ошибок**:
+  - При ошибке `LDAPInvalidCredentialsResult` генерируется критический алерт в CRM.
+  - При сетевом таймауте (более 5 с) опрос домена откладывается на следующий цикл.
+
+---
+
+### Контракт 5: Сервер сбора ➔ Total Network Inventory (TNI SQLite / CLI XML)
+
+- **Ответственные системы**:
+  - *Клиент*: TNI-парсер в `inventory-hub`.
+  - *Сервер / Источник*: Файловое хранилище TNI (файл базы данных SQLite `inventory.tni` или каталог XML-отчетов сканирования).
+- **Формат данных**:
+  - Таблицы SQLite: `inv_assets`, `inv_hardware_cpu`, `inv_hardware_memory`, `inv_hardware_drives`, `inv_software`.
+  - Данные содержат точные аппаратные спецификации: производитель и серийный номер материнской платы, серийные номера и диагональ мониторов по EDID, емкость и SMART накопителей.
+- **Авторизация**:
+  - Локальный файловый доступ на сервере сбора (права на чтение `readonly` к файлу `inventory.tni`).
+- **Обработка ошибок**:
+  - Блокировка файла БД (SQLite `busy`/`locked`): повторное чтение с экспоненциальной задержкой (до 5 попыток).
+  - Повреждение БД: падение в безопасный режим с чтением последнего валидного XML-снапшота.
+
+---
+
+### Контракт 6: Сервер сбора ➔ MeshCentral API
+
+- **Ответственные системы**:
+  - *Клиент*: MeshCentral-коннектор в `inventory-hub`.
+  - *Сервер*: Сервер удаленного администрирования MeshCentral (порт HTTPS 443).
+- **Авторизация**:
+  - Заголовок `x-token: <meshcentral_login_token>` или Basic Auth API-аккаунта.
+- **Эндпоинты и формат**:
+  - `GET /api/meshagents` — получение списка подключенных узлов.
+  - `GET /api/meshdevices` — детальные свойства компьютеров.
+  - Response:
+    ```json
+    {
+      "node-11421": {
+        "name": "askue-11421n",
+        "meshid": "mesh//central_office",
+        "conn": 1,
+        "ip": "10.177.101.97",
+        "agent": "MeshCentralAgent v0.9.8",
+        "os": "Windows 11"
+      }
+    }
+    ```
+- **Обработка ошибок**:
+  - `401 Unauthorized` / `403 Forbidden`: обновление токена.
+  - Потеря связи: статус агента выставляется в `offline` без удаления связки устройства с `NodeID`.
+
+---
+
+### Контракт 7: Django CRM ➔ 1С:Предприятие (ЗУП / Бухгалтерия OData API)
+
+- **Ответственные системы**:
+  - *Клиент*: Сервисный модуль синхронизации CRM (Celery-воркер).
+  - *Сервер*: Публикация 1C OData REST API (HTTP/HTTPS, порт 80/443).
+- **Авторизация**:
+  - HTTP Basic Authentication сервисного пользователя 1C с правами на чтение справочников.
+- **Эндпоинты и формат**:
+  - `GET /odata/standard.odata/Catalog_Сотрудники?$select=Ref_Key,Description,Code,Должность&$filter=DeletionMark eq false`
+  - `GET /odata/standard.odata/InformationRegister_КадроваяИсторияСотрудников/SliceLast()?$select=Сотрудник,ВидСобытия`
+  - Response: Стандартный OData v3/v4 JSON-ответ (`{"odata.metadata": "...", "value": [...]}`).
+- **Обработка ошибок**:
+  - Таймаут OData (запрос более 30 с): переход на порционную загрузку (`$top=100&$skip=...`).
+  - Несовпадение ФИО/табельного номера: флаг в CRM «требует ручной привязки МОЛ».
