@@ -7,7 +7,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-type Item = { label: string; icon: typeof Server; to?: "/" | "/assets" | "/integrations" };
+type Item = { label: string; icon: typeof Server; to?: "/" | "/assets" | "/integrations" | "/security-catalog" };
 const NAV: { title: string; items: Item[] }[] = [
   { title: "Оборудование", items: [
     { label: "Дашборд", icon: LayoutGrid, to: "/" },
@@ -15,7 +15,8 @@ const NAV: { title: string; items: Item[] }[] = [
     { label: "Принтеры и МФУ", icon: Printer }, { label: "Сетевое оборудование", icon: Network },
     { label: "СХД", icon: HardDrive }, { label: "МОЛ и сотрудники", icon: Users }] },
   { title: "Учётные записи и ИБ", items: [
-    { label: "Почты", icon: Mail }, { label: "ИБ (учётки)", icon: Shield }, { label: "Антивирус (KSC)", icon: ShieldCheck }] },
+    { label: "Почты", icon: Mail }, { label: "ИБ (учётки)", icon: Shield }, { label: "Антивирус (KSC)", icon: ShieldCheck },
+    { label: "Антивирусы и СЗИ", icon: ShieldCheck, to: "/security-catalog" }] },
   { title: "Обслуживание", items: [
     { label: "Инвентаризация TNI", icon: ArrowLeftRight }, { label: "Сканирование сети", icon: Radar },
     { label: "Инсталляционные пакеты", icon: Package }, { label: "Задачи", icon: CircleCheck }] },

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as SecurityCatalogRouteImport } from './routes/security-catalog'
 import { Route as AssetsIndexRouteImport } from './routes/assets.index'
 import { Route as AssetsIdRouteImport } from './routes/assets.$id'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const IntegrationsRoute = IntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityCatalogRoute = SecurityCatalogRouteImport.update({
+  id: '/security-catalog',
+  path: '/security-catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
@@ -38,12 +44,14 @@ const AssetsIdRoute = AssetsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/integrations': typeof IntegrationsRoute
+  '/security-catalog': typeof SecurityCatalogRoute
   '/assets/$id': typeof AssetsIdRoute
   '/assets/': typeof AssetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/integrations': typeof IntegrationsRoute
+  '/security-catalog': typeof SecurityCatalogRoute
   '/assets/$id': typeof AssetsIdRoute
   '/assets': typeof AssetsIndexRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/integrations': typeof IntegrationsRoute
+  '/security-catalog': typeof SecurityCatalogRoute
   '/assets/$id': typeof AssetsIdRoute
   '/assets/': typeof AssetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/integrations' | '/assets/$id' | '/assets/'
+  fullPaths:
+    '/' | '/integrations' | '/security-catalog' | '/assets/$id' | '/assets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/integrations' | '/assets/$id' | '/assets'
-  id: '__root__' | '/' | '/integrations' | '/assets/$id' | '/assets/'
+  to: '/' | '/integrations' | '/security-catalog' | '/assets/$id' | '/assets'
+  id:
+    | '__root__'
+    | '/'
+    | '/integrations'
+    | '/security-catalog'
+    | '/assets/$id'
+    | '/assets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   IntegrationsRoute: typeof IntegrationsRoute
+  SecurityCatalogRoute: typeof SecurityCatalogRoute
   AssetsIdRoute: typeof AssetsIdRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/integrations'
       preLoaderRoute: typeof IntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security-catalog': {
+      id: '/security-catalog'
+      path: '/security-catalog'
+      fullPath: '/security-catalog'
+      preLoaderRoute: typeof SecurityCatalogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets/': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   IntegrationsRoute: IntegrationsRoute,
+  SecurityCatalogRoute: SecurityCatalogRoute,
   AssetsIdRoute: AssetsIdRoute,
   AssetsIndexRoute: AssetsIndexRoute,
 }

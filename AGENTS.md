@@ -34,4 +34,6 @@ use the editor.
 - Partition antivirus detail sections by the reported source, not product name; only KSC-sourced records belong under KSC to avoid attributing other inventories to KSC.
 - Agent installation requires an explicit imported boolean; keep availability separate and label generated availability as a sample because non-response and source membership do not prove installation or absence.
 - AI program matching is authenticated and checks a protected role row server-side before calling the gateway; its advisory results never overwrite inventory facts or infer protection status.
+- Gateway model calls use `@lovable.dev/ai-gateway` with generated model contracts so server-only credentials, request typing and cancellation stay consistent.
 - Preserve separate source and update timestamps for imported antivirus names and versions; absent timestamps remain unknown, not the time of AI classification.
+- Keep the security catalog and literal signature matcher browser-safe and bundled locally; matching is advisory, distinguishes management agents from antivirus products, and never writes inventory facts or calls network services.

@@ -10,6 +10,7 @@ import { antivirusSections } from "@/lib/antivirus";
 import { Button } from "@/components/ui/button";
 import { agentInstallation, agentAvailability } from "@/lib/ksc-agent";
 import { AntivirusAi } from "@/components/crm/AntivirusAi";
+import { LocalSecurityMatcher } from "@/components/crm/LocalSecurityMatcher";
 
 export const Route = createFileRoute("/assets/$id")({
   loader: ({ params }) => { const a = getAsset(Number(params.id)); if (!a) throw notFound(); return { id: a.id, name: a.name }; },
@@ -118,6 +119,7 @@ function AntivirusTab({ a }: { a: Asset }) {
       <h2 id="other-antivirus-heading" className="mb-3 text-lg font-semibold">Иные антивирусы</h2>
       {a.otherAntiviruses.length ? a.otherAntiviruses.map((av, i) => <div key={`${av.name}-${i}`} className="mb-4"><KV rows={antivirusRows(av, true)} /></div>) : <p className="px-4 py-3 text-sm text-muted-foreground">Данные об иных антивирусах не получены.</p>}
     </section>
+    <LocalSecurityMatcher />
     <AntivirusAi assetId={a.id} />
   </div>;
 }
