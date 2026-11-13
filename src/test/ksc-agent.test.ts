@@ -11,7 +11,9 @@ describe("KSC agent installation and availability", () => {
   });
   it("keeps missing installation evidence unknown", () => {
     expect(agentInstallation()).toBe("нет данных");
-    expect(ASSETS.every(a => agentInstallation(a.ksc_agent_installed) === "нет данных")).toBe(true);
+    expect(ASSETS.every((a) => agentInstallation(a.ksc_agent_installed) === "нет данных")).toBe(
+      true,
+    );
   });
   it("does not equate no response with no installation", () => {
     expect(agentAvailability("не отвечает")).toBe("не отвечает");

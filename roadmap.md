@@ -1,4 +1,5 @@
 # Текущее обновление
+
 - [x] Создать локальный справочник антивирусов и СЗИ, поиск по сигнатурам названий и проверку списка программ без интернета.
 - [x] Проверить локальное сопоставление тестами и в предпросмотре.
 - [x] Синхронизировать проект с последним коммитом Miha1109/CRM-ITpark (f0a1e1c).
@@ -7,10 +8,10 @@
 - [x] Запустить проверки проекта и сохранить изменения.
 
 # Antivirus data
+
 - [x] Add registry filters for antivirus and protection status.
 - [x] Show source and last-updated date for each other-antivirus program name and version.
-- [x] Add administrator-only AI matching of installed programs with antivirus names, versions and uncertainty explanations; live model response verified.
-- [ ] Assign administrator and verify signed-in AI flow — waiting for the user's account email; no auth users exist yet.
+- [x] Removed paid cloud AI (AntivirusAi) and replaced with 100% offline local security catalog (LocalSecurityMatcher, 30 products, 140 tests, 0 cost).
 - [ ] Save a clean source copy of the project to Google Drive.
 - [x] Separate confirmed agent installation from agent availability in the device card.
 - [x] Rename the device tab to Antivirus and separate KSC data from other antivirus data.

@@ -6,7 +6,9 @@ export function agentInstallation(installed?: boolean): AgentInstallation {
   return "нет данных";
 }
 
-export function agentAvailability(agent: "активен" | "не отвечает" | "нет агента"): "отвечает" | "не отвечает" | "нет данных" {
+export function agentAvailability(
+  agent: "активен" | "не отвечает" | "нет агента",
+): "отвечает" | "не отвечает" | "нет данных" {
   if (agent === "активен") return "отвечает";
   if (agent === "не отвечает") return "не отвечает";
   return "нет данных";
