@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import {
   CheckCircle2,
-  AlertTriangle,
   XCircle,
   Loader2,
   Eye,
@@ -31,6 +30,8 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  FolderTree,
+  Database,
 } from "lucide-react";
 
 export type SystemCode = "AD" | "KSC" | "TNI" | "Mesh" | "1C" | "custom";
@@ -54,6 +55,9 @@ export interface IntegrationItem {
   allowSelfSigned?: boolean;
   timeoutSeconds?: number;
   syncIntervalMinutes?: number;
+  sharePath?: string;
+  database?: string;
+  syncContainers?: string[];
 }
 
 export interface TestResult {
@@ -76,18 +80,28 @@ export interface PresetConfig {
   hint: string;
 }
 
+export const AD_CONTAINERS = [
+  { value: "CN=Computers", kind: "CN", label: "Контейнер компьютеров по умолчанию" },
+  { value: "CN=Users", kind: "CN", label: "Контейнер пользователей" },
+  { value: "OU=Workstations", kind: "OU", label: "Рабочие станции сотрудников" },
+  { value: "OU=Computers", kind: "OU", label: "Компьютеры отделов и служб" },
+  { value: "OU=Servers", kind: "OU", label: "Серверное оборудование" },
+  { value: "OU=Laptops", kind: "OU", label: "Ноутбуки и мобильные ПК" },
+  { value: "OU=Branches", kind: "OU", label: "Филиалы и удалённые РЭС" },
+] as const;
+
 export const SYSTEM_PRESETS: Record<SystemCode, PresetConfig> = {
   AD: {
     code: "AD",
     name: "Active Directory",
-    proto: "LDAP / LDAPS",
+    proto: "LDAPS",
     defaultPort: "636",
     defaultAuthType: "basic",
     useSsl: true,
     allowSelfSigned: true,
     hostPlaceholder: "dc01.sbyt.minsk.energo.net, dc02.sbyt.minsk.energo.net",
     notePlaceholder: "Домен: sbyt.minsk.energo.net",
-    hint: "Рекомендуется LDAPS (порт 636) и сервисная учётная запись с правами чтения каталога (Read Only Domain Users).",
+    hint: "Рекомендуется LDAPS (порт 636, SSL/TLS). При выборе стандартного LDAP порт автоматически меняется на 389. После проверки связи можно выбрать OU и CN для синхронизации.",
   },
   KSC: {
     code: "KSC",
@@ -104,14 +118,14 @@ export const SYSTEM_PRESETS: Record<SystemCode, PresetConfig> = {
   TNI: {
     code: "TNI",
     name: "Total Network Inventory",
-    proto: "inventory-hub",
+    proto: "SMB",
     defaultPort: "445",
-    defaultAuthType: "agent",
+    defaultAuthType: "basic",
     useSsl: false,
     allowSelfSigned: false,
     hostPlaceholder: "10.177.100.46",
     notePlaceholder: "Синхронизация через парсер хранилища TNI",
-    hint: "Синхронизация с базой данных Total Network Inventory (через сетевую папку SMB или скрипт inventory-hub).",
+    hint: "Синхронизация с Total Network Inventory возможна по SMB (сетевая папка хранилища, порт 445) либо напрямую через базу данных PostgreSQL (порт 5432).",
   },
   Mesh: {
     code: "Mesh",
@@ -173,9 +187,10 @@ export const SYSTEM_PROTOCOLS: Record<SystemCode, ProtocolOption[]> = {
     { value: "custom", label: "Другой протокол (вручную)", port: "13299", useSsl: true },
   ],
   TNI: [
-    { value: "inventory-hub", label: "inventory-hub (SMB) — порт 445", port: "445", useSsl: false },
-    { value: "HTTP API", label: "HTTP API — порт 80", port: "80", useSsl: false },
-    { value: "HTTPS API", label: "HTTPS API — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "SMB", label: "SMB (сетевая папка хранилища TNI) — порт 445", port: "445", useSsl: false },
+    { value: "PostgreSQL", label: "PostgreSQL (прямое подключение к БД) — порт 5432", port: "5432", useSsl: false },
+    { value: "HTTPS API", label: "HTTPS REST API — порт 443 (SSL)", port: "443", useSsl: true },
+    { value: "HTTP API", label: "HTTP REST API — порт 80", port: "80", useSsl: false },
     { value: "custom", label: "Другой протокол (вручную)", port: "445", useSsl: false },
   ],
   Mesh: [
@@ -216,7 +231,6 @@ export function IntegrationConfigDialog({
 }: IntegrationConfigDialogProps) {
   const isEditing = Boolean(item);
 
-  // Match existing item to preset or default to KSC / AD
   const initialSystem: SystemCode = item?.code
     ? (SYSTEM_PRESETS[item.code as SystemCode] ? (item.code as SystemCode) : "custom")
     : "KSC";
@@ -241,6 +255,11 @@ export function IntegrationConfigDialog({
   const [timeoutSeconds, setTimeoutSeconds] = useState(item?.timeoutSeconds || 10);
   const [syncIntervalMinutes, setSyncIntervalMinutes] = useState(item?.syncIntervalMinutes || 60);
 
+  // Specialized fields for TNI & AD
+  const [sharePath, setSharePath] = useState(item?.sharePath || "");
+  const [database, setDatabase] = useState(item?.database || "");
+  const [syncContainers, setSyncContainers] = useState<string[]>(item?.syncContainers || []);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -248,7 +267,6 @@ export function IntegrationConfigDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCustomProto, setIsCustomProto] = useState(false);
 
-  // Reset form when item changes or dialog opens
   useEffect(() => {
     if (open) {
       if (item) {
@@ -270,6 +288,9 @@ export function IntegrationConfigDialog({
         setAllowSelfSigned(item.allowSelfSigned ?? true);
         setTimeoutSeconds(item.timeoutSeconds || 10);
         setSyncIntervalMinutes(item.syncIntervalMinutes || 60);
+        setSharePath(item.sharePath || "");
+        setDatabase(item.database || "");
+        setSyncContainers(item.syncContainers || []);
       } else {
         applyPreset("KSC");
       }
@@ -291,6 +312,9 @@ export function IntegrationConfigDialog({
     setAuthType(p.defaultAuthType);
     setUseSsl(p.useSsl);
     setAllowSelfSigned(p.allowSelfSigned);
+    setSharePath(sys === "TNI" ? "\\\\10.177.100.46\\inventory-hub" : "");
+    setDatabase(sys === "TNI" ? "tni" : "");
+    setSyncContainers([]);
     if (!item) {
       setHost("");
       setNote(p.notePlaceholder);
@@ -300,6 +324,7 @@ export function IntegrationConfigDialog({
       if (sys === "AD") {
         setDomain("sbyt.minsk.energo.net");
         setBaseDn("DC=sbyt,DC=minsk,DC=energo,DC=net");
+        setSyncContainers(["OU=Workstations", "OU=Servers", "OU=Laptops"]);
       } else {
         setDomain("");
         setBaseDn("");
@@ -337,6 +362,15 @@ export function IntegrationConfigDialog({
     applyPreset(sys);
   };
 
+  const toggleContainer = (val: string) => {
+    setSyncContainers((prev) =>
+      prev.includes(val) ? prev.filter((c) => c !== val) : [...prev, val]
+    );
+  };
+
+  const isTniSmb = selectedSystem === "TNI" && proto === "SMB";
+  const isTniPostgres = selectedSystem === "TNI" && proto === "PostgreSQL";
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!host.trim()) {
@@ -347,6 +381,12 @@ export function IntegrationConfigDialog({
     }
     if (!name.trim()) {
       newErrors.name = "Укажите наименование";
+    }
+    if (isTniSmb && !sharePath.trim()) {
+      newErrors.sharePath = "Укажите SMB-путь к хранилищу";
+    }
+    if (isTniPostgres && !database.trim()) {
+      newErrors.database = "Укажите имя базы данных";
     }
     if (authType === "basic" && !username.trim()) {
       newErrors.username = "Укажите имя пользователя / учётную запись";
@@ -383,6 +423,9 @@ export function IntegrationConfigDialog({
       allowSelfSigned,
       timeoutSeconds,
       syncIntervalMinutes,
+      sharePath: isTniSmb ? sharePath : undefined,
+      database: isTniPostgres ? database : undefined,
+      syncContainers,
     };
 
     if (onTestConnection) {
@@ -402,7 +445,6 @@ export function IntegrationConfigDialog({
       return;
     }
 
-    // Default built-in smart simulation with domain diagnostic for KSC
     setTimeout(() => {
       setIsTesting(false);
       if (code === "KSC") {
@@ -417,11 +459,20 @@ export function IntegrationConfigDialog({
         }
       }
 
+      let extraDetails = `Сервис ${name} доступен по адресу ${host}:${port} (${proto}). Рукопожатие выполнено.`;
+      if (selectedSystem === "AD") {
+        extraDetails += ` Каталог Active Directory отвечает. Доступны подразделения (OU) и контейнеры (CN). Выберите необходимые объекты ниже.`;
+      } else if (isTniSmb) {
+        extraDetails += ` Сетевая папка SMB (${sharePath || host}) доступна на чтение (порт 445). Хранилище TNI прочитано.`;
+      } else if (isTniPostgres) {
+        extraDetails += ` База данных PostgreSQL (${database || "tni"}) успешно подключена (порт ${port}).`;
+      }
+
       setTestResult({
         ok: true,
         message: "Связь успешно установлена",
         latencyMs: Math.floor(Math.random() * 25) + 12,
-        details: `Сервис ${name} доступен по адресу ${host}:${port} (${proto}). Рукопожатие выполнено.`,
+        details: extraDetails,
       });
     }, 700);
   };
@@ -448,6 +499,9 @@ export function IntegrationConfigDialog({
       allowSelfSigned,
       timeoutSeconds: Number(timeoutSeconds) || 10,
       syncIntervalMinutes: Number(syncIntervalMinutes) || 60,
+      sharePath: isTniSmb ? sharePath : undefined,
+      database: isTniPostgres ? database : undefined,
+      syncContainers: selectedSystem === "AD" ? syncContainers : undefined,
     };
 
     onSave(saved);
@@ -469,7 +523,7 @@ export function IntegrationConfigDialog({
                 {isEditing ? `Настройка подключения: ${name}` : "Новая интеграция"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Параметры соединения, протокол и учётные данные для внешней системы
+                Параметры соединения, протокол и учётные данные для внешней системы.
               </DialogDescription>
             </div>
           </div>
@@ -488,9 +542,9 @@ export function IntegrationConfigDialog({
               <SelectContent>
                 <SelectItem value="KSC">Kaspersky Security Center (KSC OpenAPI)</SelectItem>
                 <SelectItem value="AD">Active Directory (LDAP / LDAPS)</SelectItem>
-                <SelectItem value="TNI">Total Network Inventory (TNI)</SelectItem>
+                <SelectItem value="TNI">Total Network Inventory (SMB / PostgreSQL)</SelectItem>
                 <SelectItem value="Mesh">MeshCentral (WebSocket API)</SelectItem>
-                <SelectItem value="1C">1С:Предприятие (Кадры / МОЛ / OData)</SelectItem>
+                <SelectItem value="1C">1C:Предприятие (Кадры / МОЛ / OData)</SelectItem>
                 <SelectItem value="custom">Другая система (произвольный REST/API)</SelectItem>
               </SelectContent>
             </Select>
@@ -506,7 +560,7 @@ export function IntegrationConfigDialog({
             </div>
           )}
 
-          {/* Code, Name, Protocol */}
+          {/* Code, Name */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <Label className="text-xs">Код системы</Label>
@@ -532,7 +586,7 @@ export function IntegrationConfigDialog({
           {/* Protocol, Host & Port */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
             <div className="sm:col-span-5">
-              <Label className="text-xs">Протокол</Label>
+              <Label className="text-xs">Протокол подключения</Label>
               <Select
                 value={
                   isCustomProto ||
@@ -584,6 +638,53 @@ export function IntegrationConfigDialog({
             </div>
           </div>
 
+          {/* TNI Specific: SMB share path or PostgreSQL database */}
+          {selectedSystem === "TNI" && (
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                {isTniPostgres ? <Database className="h-4 w-4" /> : <FolderTree className="h-4 w-4" />}
+                <span>{isTniPostgres ? "Параметры базы данных PostgreSQL TNI" : "Параметры хранилища TNI по SMB"}</span>
+              </div>
+              {isTniSmb && (
+                <div>
+                  <Label className="text-xs">Сетевой путь SMB (UNC-путь)</Label>
+                  <Input
+                    value={sharePath}
+                    onChange={(e) => setSharePath(e.target.value)}
+                    placeholder="\\10.177.100.46\inventory-hub\data"
+                    className="mt-1 font-mono text-xs bg-background"
+                  />
+                  {errors.sharePath && <span className="text-xs text-destructive">{errors.sharePath}</span>}
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    Укажите путь к каталогу с файлами инвентаризации TNI (.inv, .xml, sqlite хранилище).
+                  </span>
+                </div>
+              )}
+              {isTniPostgres && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Имя базы данных PostgreSQL</Label>
+                    <Input
+                      value={database}
+                      onChange={(e) => setDatabase(e.target.value)}
+                      placeholder="tni"
+                      className="mt-1 font-mono text-xs bg-background"
+                    />
+                    {errors.database && <span className="text-xs text-destructive">{errors.database}</span>}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Схема данных</Label>
+                    <Input
+                      defaultValue="public"
+                      placeholder="public"
+                      className="mt-1 font-mono text-xs bg-background"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* AD Specific Fields */}
           {selectedSystem === "AD" && (
             <div className="grid grid-cols-1 gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-2">
@@ -613,35 +714,49 @@ export function IntegrationConfigDialog({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                 <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Авторизация и доступ</span>
+                <span>
+                  {isTniSmb
+                    ? "Учётные данные для доступа к SMB-папке"
+                    : isTniPostgres
+                    ? "Учётные данные пользователя PostgreSQL"
+                    : "Авторизация и доступ"}
+                </span>
               </div>
-              <div className="w-48">
-                <Select
-                  value={authType}
-                  onValueChange={(v) => setAuthType(v as "basic" | "token" | "agent" | "none")}
-                >
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Логин и пароль (Basic)</SelectItem>
-                    <SelectItem value="token">API-токен / Ключ</SelectItem>
-                    <SelectItem value="agent">Агент / Локальный скрипт</SelectItem>
-                    <SelectItem value="none">Без авторизации</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isTniSmb && !isTniPostgres && (
+                <div className="w-48">
+                  <Select
+                    value={authType}
+                    onValueChange={(v) =>
+                      setAuthType(v as "basic" | "token" | "agent" | "none")
+                    }
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Логин и пароль (Basic)</SelectItem>
+                      <SelectItem value="token">API-токен / Ключ</SelectItem>
+                      <SelectItem value="agent">Агент / Локальный скрипт</SelectItem>
+                      <SelectItem value="none">Без авторизации</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
-            {authType === "basic" && (
+            {(authType === "basic" || isTniSmb || isTniPostgres) && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label className="text-xs">
                     {selectedSystem === "KSC"
                       ? "Внутренний пользователь KSC"
                       : selectedSystem === "AD"
-                        ? "Учётная запись (UPN или DN)"
-                        : "Имя пользователя"}
+                      ? "Учётная запись (UPN или DN)"
+                      : isTniPostgres
+                      ? "Пользователь БД PostgreSQL"
+                      : isTniSmb
+                      ? "Логин для сетевой папки (domain\\user)"
+                      : "Имя пользователя"}
                   </Label>
                   <Input
                     value={username}
@@ -650,8 +765,12 @@ export function IntegrationConfigDialog({
                       selectedSystem === "KSC"
                         ? "ksc_service_user"
                         : selectedSystem === "AD"
-                          ? "svc_inventory@sbyt.minsk.energo.net"
-                          : "service_admin"
+                        ? "svc_inventory@sbyt.minsk.energo.net"
+                        : isTniPostgres
+                        ? "tni_reader"
+                        : isTniSmb
+                        ? "CORP\\svc_tni"
+                        : "service_admin"
                     }
                     className="mt-1 font-mono text-xs"
                   />
@@ -686,7 +805,7 @@ export function IntegrationConfigDialog({
               </div>
             )}
 
-            {authType === "token" && (
+            {authType === "token" && !isTniSmb && !isTniPostgres && (
               <div>
                 <Label className="text-xs">API-токен доступа</Label>
                 <div className="relative mt-1">
@@ -709,7 +828,7 @@ export function IntegrationConfigDialog({
               </div>
             )}
 
-            {authType === "agent" && (
+            {authType === "agent" && !isTniSmb && !isTniPostgres && (
               <div className="rounded border border-dashed border-border p-2.5 text-xs text-muted-foreground">
                 Аутентификация не требуется: сбор данных осуществляется внешней утилитой или скриптом
                 inventory-hub с прямым доступом к базе данных или файловой шаре.
@@ -757,7 +876,11 @@ export function IntegrationConfigDialog({
               ) : (
                 <ChevronDown className="h-3.5 w-3.5" />
               )}
-              <span>{showAdvanced ? "Скрыть дополнительные параметры" : "Дополнительные параметры (таймауты, sync, заметки)"}</span>
+              <span>
+                {showAdvanced
+                  ? "Скрыть дополнительные параметры"
+                  : "Дополнительные параметры (таймауты, sync, заметки)"}
+              </span>
             </button>
 
             {showAdvanced && (
@@ -830,6 +953,50 @@ export function IntegrationConfigDialog({
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* AD Container Selection (revealed after test or if already selected) */}
+          {selectedSystem === "AD" && (testResult?.ok || syncContainers.length > 0) && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-2.5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                  <FolderTree className="h-4 w-4" />
+                  <span>Выбор OU и CN для синхронизации</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Выбрано: {syncContainers.length}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Укажите, с какими подразделениями (OU) и контейнерами (CN) домена синхронизировать устройства и рабочие места:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {AD_CONTAINERS.map((cnt) => {
+                  const isChecked = syncContainers.includes(cnt.value);
+                  return (
+                    <label
+                      key={cnt.value}
+                      className={`flex items-start gap-2 rounded border p-2 cursor-pointer transition-colors text-xs ${
+                        isChecked
+                          ? "border-primary bg-background shadow-xs font-medium"
+                          : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/40"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleContainer(cnt.value)}
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[11px]">{cnt.value}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{cnt.label}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           )}
