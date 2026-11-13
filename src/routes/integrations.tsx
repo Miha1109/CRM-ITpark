@@ -312,30 +312,32 @@ function Integrations() {
           </div>
         }
       >
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
-            <tr>
-              {["Когда", "Интеграция", "Операция", "Результат", "Сообщение"].map((h) => (
-                <th key={h} className="px-4 py-2.5 font-medium">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((l, idx) => (
-              <tr key={`${l[0]}-${idx}`} className="border-t hover:bg-muted/30">
-                <td className="px-4 py-3 font-mono text-xs">{l[0]}</td>
-                <td className="px-4 py-3 font-medium">{l[3]}</td>
-                <td className="px-4 py-3 text-muted-foreground">Проверка связи</td>
-                <td className="px-4 py-3">
-                  <Pill tone={l[1] === "успешно" ? "success" : "danger"}>{l[1]}</Pill>
-                </td>
-                <td className="px-4 py-3 text-xs leading-relaxed">{l[2]}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
+              <tr>
+                {["Когда", "Интеграция", "Операция", "Результат", "Сообщение"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 font-medium">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((l, idx) => (
+                <tr key={`${l[0]}-${idx}`} className="border-t hover:bg-muted/30">
+                  <td className="px-4 py-3 font-mono text-xs">{l[0]}</td>
+                  <td className="px-4 py-3 font-medium">{l[3]}</td>
+                  <td className="px-4 py-3 text-muted-foreground">Проверка связи</td>
+                  <td className="px-4 py-3">
+                    <Pill tone={l[1] === "успешно" ? "success" : "danger"}>{l[1]}</Pill>
+                  </td>
+                  <td className="px-4 py-3 text-xs leading-relaxed">{l[2]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
 
       {/* Connection Configuration Dialog */}

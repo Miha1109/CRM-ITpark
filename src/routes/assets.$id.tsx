@@ -247,24 +247,26 @@ function Tni({ a }: { a: Asset }) {
         />
       </Panel>
       <Panel title="Программное обеспечение" subtitle={`${a.software.length} пакетов`}>
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2">Название</th>
-              <th className="px-4 py-2">Версия</th>
-              <th className="px-4 py-2">Издатель</th>
-            </tr>
-          </thead>
-          <tbody>
-            {a.software.map((s) => (
-              <tr key={s.name} className="border-t">
-                <td className="px-4 py-2">{s.name}</td>
-                <td className="px-4 py-2 font-mono text-xs">{s.version}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{s.vendor}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2">Название</th>
+                <th className="px-4 py-2">Версия</th>
+                <th className="px-4 py-2">Издатель</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {a.software.map((s) => (
+                <tr key={s.name} className="border-t">
+                  <td className="px-4 py-2">{s.name}</td>
+                  <td className="px-4 py-2 font-mono text-xs">{s.version}</td>
+                  <td className="px-4 py-2 text-xs text-muted-foreground">{s.vendor}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
     </div>
   );
@@ -418,31 +420,33 @@ function Mesh({ a }: { a: Asset }) {
 function History({ a }: { a: Asset }) {
   return (
     <Panel title="История аудита и изменений">
-      <table className="w-full text-sm">
-        <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
-          <tr>
-            {["Когда", "Кто", "Источник", "Поле", "Было", "Стало"].map((h) => (
-              <th key={h} className="px-4 py-2.5">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {a.audit.map((e, i) => (
-            <tr key={i} className="border-t">
-              <td className="px-4 py-2.5 font-mono text-xs">{e.at}</td>
-              <td className="px-4 py-2.5">{e.who}</td>
-              <td className="px-4 py-2.5">
-                <SourceBadge s={e.source} />
-              </td>
-              <td className="px-4 py-2.5 font-mono text-xs">{e.field}</td>
-              <td className="px-4 py-2.5 text-muted-foreground line-through">{e.from}</td>
-              <td className="px-4 py-2.5">{e.to}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-left text-[11px] uppercase text-muted-foreground">
+            <tr>
+              {["Когда", "Кто", "Источник", "Поле", "Было", "Стало"].map((h) => (
+                <th key={h} className="px-4 py-2.5">
+                  {h}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {a.audit.map((e, i) => (
+              <tr key={i} className="border-t">
+                <td className="px-4 py-2.5 font-mono text-xs">{e.at}</td>
+                <td className="px-4 py-2.5">{e.who}</td>
+                <td className="px-4 py-2.5">
+                  <SourceBadge s={e.source} />
+                </td>
+                <td className="px-4 py-2.5 font-mono text-xs">{e.field}</td>
+                <td className="px-4 py-2.5 text-muted-foreground line-through">{e.from}</td>
+                <td className="px-4 py-2.5">{e.to}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Panel>
   );
 }

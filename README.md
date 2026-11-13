@@ -419,6 +419,7 @@ npm run format
 ## 🤖 Обязательные инструкции для ИИ-ассистентов (AI Agent Guidelines)
 
 Каждый ИИ-ассистент (Lovable, Claude, ChatGPT, Cursor, Windsurf, Copilot и др.) при начале работы с репозиторием **ОБЯЗАН**:
+
 1. **Установить зависимости**: `bun install` (или `npm install`).
 2. **Провести диагностику проекта одной командой**:
    - `bun run check` (или `npm run check`) — единая команда, последовательно запускающая `tsc --noEmit`, `eslint .`, `vitest run` (154 теста) и `vite build`.

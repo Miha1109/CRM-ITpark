@@ -55,7 +55,7 @@ function Dashboard() {
           </>
         }
       />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat
           label="Всего оборудования"
           value={ASSETS.length}
@@ -108,7 +108,7 @@ function Dashboard() {
         title="Структура парка оборудования"
         subtitle="Распределение по ключевым типам устройств"
       >
-        <div className="grid gap-4 p-4 md:grid-cols-4">
+        <div className="grid gap-3 p-4 sm:grid-cols-2 md:grid-cols-4">
           {[
             [Monitor, "ПК и ноутбуки", ASSETS.length],
             [Printer, "Принтеры и МФУ", printers],
@@ -140,41 +140,43 @@ function Dashboard() {
           </Link>
         }
       >
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-            <tr>
-              {["Инв. №", "Имя ПК", "МОЛ", "IP", "Состояние", "Синхр."].map((h) => (
-                <th key={h} className="px-4 py-2.5 font-semibold">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {recent.map((a) => (
-              <tr key={a.id} className="border-t hover:bg-muted/50">
-                <td className="px-4 py-2.5 font-mono">{a.inv || "—"}</td>
-                <td className="px-4 py-2.5">
-                  <Link
-                    to="/assets/$id"
-                    params={{ id: String(a.id) }}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {a.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5">{a.mol}</td>
-                <td className="px-4 py-2.5 font-mono">{a.ip || "—"}</td>
-                <td className="px-4 py-2.5">
-                  <StatusBadge s={a.status} />
-                </td>
-                <td className="px-4 py-2.5">
-                  <SyncBadge s={a.sync} />
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                {["Инв. №", "Имя ПК", "МОЛ", "IP", "Состояние", "Синхр."].map((h) => (
+                  <th key={h} className="px-4 py-2.5 font-semibold">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {recent.map((a) => (
+                <tr key={a.id} className="border-t hover:bg-muted/50">
+                  <td className="px-4 py-2.5 font-mono">{a.inv || "—"}</td>
+                  <td className="px-4 py-2.5">
+                    <Link
+                      to="/assets/$id"
+                      params={{ id: String(a.id) }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {a.name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2.5">{a.mol}</td>
+                  <td className="px-4 py-2.5 font-mono">{a.ip || "—"}</td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge s={a.status} />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <SyncBadge s={a.sync} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
     </>
   );
