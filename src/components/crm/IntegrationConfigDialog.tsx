@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -37,27 +37,37 @@ import {
 export type SystemCode = "AD" | "KSC" | "TNI" | "Mesh" | "1C" | "custom";
 
 export interface IntegrationItem {
-  id?: string;
+  id?: string | undefined;
   code: string;
   name: string;
   proto: string;
   host: string;
-  port?: string | number;
+  port?: string | number | undefined;
   note: string;
   ok: boolean | null;
-  authType?: "basic" | "token" | "agent" | "none";
-  username?: string;
-  password?: string;
-  token?: string;
-  domain?: string;
-  baseDn?: string;
-  useSsl?: boolean;
-  allowSelfSigned?: boolean;
-  timeoutSeconds?: number;
-  syncIntervalMinutes?: number;
-  sharePath?: string;
-  database?: string;
-  syncContainers?: string[];
+  authType?: "basic" | "token" | "agent" | "none" | undefined;
+  username?: string | undefined;
+  password?: string | undefined;
+  token?: string | undefined;
+  domain?: string | undefined;
+  baseDn?: string | undefined;
+  useSsl?: boolean | undefined;
+  allowSelfSigned?: boolean | undefined;
+  timeoutSeconds?: number | undefined;
+  syncIntervalMinutes?: number | undefined;
+  sharePath?: string | undefined;
+  database?: string | undefined;
+  syncContainers?: string[] | undefined;
+}
+
+export interface FormErrors {
+  name?: string | undefined;
+  host?: string | undefined;
+  port?: string | undefined;
+  sharePath?: string | undefined;
+  database?: string | undefined;
+  username?: string | undefined;
+  token?: string | undefined;
 }
 
 export interface TestResult {
@@ -176,31 +186,61 @@ export const SYSTEM_PROTOCOLS: Record<SystemCode, ProtocolOption[]> = {
   AD: [
     { value: "LDAPS", label: "LDAPS (защищённый) — порт 636 (SSL)", port: "636", useSsl: true },
     { value: "LDAP", label: "LDAP (стандартный) — порт 389", port: "389", useSsl: false },
-    { value: "LDAPS GC", label: "Global Catalog LDAPS — порт 3269 (SSL)", port: "3269", useSsl: true },
+    {
+      value: "LDAPS GC",
+      label: "Global Catalog LDAPS — порт 3269 (SSL)",
+      port: "3269",
+      useSsl: true,
+    },
     { value: "LDAP GC", label: "Global Catalog LDAP — порт 3268", port: "3268", useSsl: false },
     { value: "custom", label: "Другой протокол (вручную)", port: "636", useSsl: true },
   ],
   KSC: [
-    { value: "API (HTTP/REST)", label: "KSC OpenAPI (REST) — порт 13299 (SSL)", port: "13299", useSsl: true },
+    {
+      value: "API (HTTP/REST)",
+      label: "KSC OpenAPI (REST) — порт 13299 (SSL)",
+      port: "13299",
+      useSsl: true,
+    },
     { value: "HTTP/REST", label: "HTTP / REST — порт 8080 (без SSL)", port: "8080", useSsl: false },
     { value: "HTTPS/REST", label: "HTTPS / REST — порт 443 (SSL)", port: "443", useSsl: true },
     { value: "custom", label: "Другой протокол (вручную)", port: "13299", useSsl: true },
   ],
   TNI: [
-    { value: "SMB", label: "SMB (сетевая папка хранилища TNI) — порт 445", port: "445", useSsl: false },
-    { value: "PostgreSQL", label: "PostgreSQL (прямое подключение к БД) — порт 5432", port: "5432", useSsl: false },
+    {
+      value: "SMB",
+      label: "SMB (сетевая папка хранилища TNI) — порт 445",
+      port: "445",
+      useSsl: false,
+    },
+    {
+      value: "PostgreSQL",
+      label: "PostgreSQL (прямое подключение к БД) — порт 5432",
+      port: "5432",
+      useSsl: false,
+    },
     { value: "HTTPS API", label: "HTTPS REST API — порт 443 (SSL)", port: "443", useSsl: true },
     { value: "HTTP API", label: "HTTP REST API — порт 80", port: "80", useSsl: false },
     { value: "custom", label: "Другой протокол (вручную)", port: "445", useSsl: false },
   ],
   Mesh: [
-    { value: "WebSocket API", label: "WebSocket Secure (WSS) — порт 443 (SSL)", port: "443", useSsl: true },
+    {
+      value: "WebSocket API",
+      label: "WebSocket Secure (WSS) — порт 443 (SSL)",
+      port: "443",
+      useSsl: true,
+    },
     { value: "WebSocket (WS)", label: "WebSocket (WS) — порт 80", port: "80", useSsl: false },
     { value: "HTTPS API", label: "HTTPS REST API — порт 443 (SSL)", port: "443", useSsl: true },
     { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
   ],
   "1C": [
-    { value: "OData / REST", label: "OData / REST (HTTPS) — порт 443 (SSL)", port: "443", useSsl: true },
+    {
+      value: "OData / REST",
+      label: "OData / REST (HTTPS) — порт 443 (SSL)",
+      port: "443",
+      useSsl: true,
+    },
     { value: "OData (HTTP)", label: "OData / REST (HTTP) — порт 80", port: "80", useSsl: false },
     { value: "1C Cluster", label: "Кластер 1C — порт 1541", port: "1541", useSsl: false },
     { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
@@ -208,7 +248,12 @@ export const SYSTEM_PROTOCOLS: Record<SystemCode, ProtocolOption[]> = {
   custom: [
     { value: "HTTPS / REST", label: "HTTPS / REST — порт 443 (SSL)", port: "443", useSsl: true },
     { value: "HTTP / REST", label: "HTTP / REST — порт 80", port: "80", useSsl: false },
-    { value: "WebSocket (WSS)", label: "WebSocket WSS — порт 443 (SSL)", port: "443", useSsl: true },
+    {
+      value: "WebSocket (WSS)",
+      label: "WebSocket WSS — порт 443 (SSL)",
+      port: "443",
+      useSsl: true,
+    },
     { value: "gRPC", label: "gRPC — порт 50051 (SSL)", port: "50051", useSsl: true },
     { value: "custom", label: "Другой протокол (вручную)", port: "443", useSsl: true },
   ],
@@ -232,7 +277,9 @@ export function IntegrationConfigDialog({
   const isEditing = Boolean(item);
 
   const initialSystem: SystemCode = item?.code
-    ? (SYSTEM_PRESETS[item.code as SystemCode] ? (item.code as SystemCode) : "custom")
+    ? SYSTEM_PRESETS[item.code as SystemCode]
+      ? (item.code as SystemCode)
+      : "custom"
     : "KSC";
 
   const [selectedSystem, setSelectedSystem] = useState<SystemCode>(initialSystem);
@@ -243,7 +290,7 @@ export function IntegrationConfigDialog({
   const [port, setPort] = useState(item?.port?.toString() || SYSTEM_PRESETS.KSC.defaultPort);
   const [note, setNote] = useState(item?.note || "");
   const [authType, setAuthType] = useState<"basic" | "token" | "agent" | "none">(
-    item?.authType || SYSTEM_PRESETS.KSC.defaultAuthType
+    item?.authType || SYSTEM_PRESETS.KSC.defaultAuthType,
   );
   const [username, setUsername] = useState(item?.username || "");
   const [password, setPassword] = useState(item?.password || "");
@@ -264,8 +311,43 @@ export function IntegrationConfigDialog({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isCustomProto, setIsCustomProto] = useState(false);
+
+  const applyPreset = useCallback(
+    (sys: SystemCode) => {
+      setIsCustomProto(false);
+      setSelectedSystem(sys);
+      const p = SYSTEM_PRESETS[sys];
+      setCode(p.code === "custom" ? "EXT" : p.code);
+      setName(p.name);
+      setProto(p.proto);
+      setPort(p.defaultPort);
+      setAuthType(p.defaultAuthType);
+      setUseSsl(p.useSsl);
+      setAllowSelfSigned(p.allowSelfSigned);
+      setSharePath(sys === "TNI" ? "\\\\10.177.100.46\\inventory-hub" : "");
+      setDatabase(sys === "TNI" ? "tni" : "");
+      setSyncContainers([]);
+      if (!item) {
+        setHost("");
+        setNote(p.notePlaceholder);
+        setUsername("");
+        setPassword("");
+        setToken("");
+        if (sys === "AD") {
+          setDomain("sbyt.minsk.energo.net");
+          setBaseDn("DC=sbyt,DC=minsk,DC=energo,DC=net");
+          setSyncContainers(["OU=Workstations", "OU=Servers", "OU=Laptops"]);
+        } else {
+          setDomain("");
+          setBaseDn("");
+        }
+      }
+      setTestResult(null);
+    },
+    [item],
+  );
 
   useEffect(() => {
     if (open) {
@@ -299,39 +381,7 @@ export function IntegrationConfigDialog({
       setIsCustomProto(false);
       setShowPassword(false);
     }
-  }, [open, item]);
-
-  const applyPreset = (sys: SystemCode) => {
-    setIsCustomProto(false);
-    setSelectedSystem(sys);
-    const p = SYSTEM_PRESETS[sys];
-    setCode(p.code === "custom" ? "EXT" : p.code);
-    setName(p.name);
-    setProto(p.proto);
-    setPort(p.defaultPort);
-    setAuthType(p.defaultAuthType);
-    setUseSsl(p.useSsl);
-    setAllowSelfSigned(p.allowSelfSigned);
-    setSharePath(sys === "TNI" ? "\\\\10.177.100.46\\inventory-hub" : "");
-    setDatabase(sys === "TNI" ? "tni" : "");
-    setSyncContainers([]);
-    if (!item) {
-      setHost("");
-      setNote(p.notePlaceholder);
-      setUsername("");
-      setPassword("");
-      setToken("");
-      if (sys === "AD") {
-        setDomain("sbyt.minsk.energo.net");
-        setBaseDn("DC=sbyt,DC=minsk,DC=energo,DC=net");
-        setSyncContainers(["OU=Workstations", "OU=Servers", "OU=Laptops"]);
-      } else {
-        setDomain("");
-        setBaseDn("");
-      }
-    }
-    setTestResult(null);
-  };
+  }, [open, item, applyPreset]);
 
   const handleProtocolChange = (selectedVal: string) => {
     if (selectedVal === "custom") {
@@ -364,7 +414,7 @@ export function IntegrationConfigDialog({
 
   const toggleContainer = (val: string) => {
     setSyncContainers((prev) =>
-      prev.includes(val) ? prev.filter((c) => c !== val) : [...prev, val]
+      prev.includes(val) ? prev.filter((c) => c !== val) : [...prev, val],
     );
   };
 
@@ -372,7 +422,7 @@ export function IntegrationConfigDialog({
   const isTniPostgres = selectedSystem === "TNI" && proto === "PostgreSQL";
 
   const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
+    const newErrors: FormErrors = {};
     if (!host.trim()) {
       newErrors.host = "Укажите адрес хоста или IP";
     }
@@ -488,7 +538,7 @@ export function IntegrationConfigDialog({
       host,
       port: port ? Number(port) : undefined,
       note: note.trim() || SYSTEM_PRESETS[selectedSystem]?.notePlaceholder || "",
-      ok: testResult ? testResult.ok : item?.ok ?? null,
+      ok: testResult ? testResult.ok : (item?.ok ?? null),
       authType,
       username: username.trim() || undefined,
       password: password || undefined,
@@ -589,8 +639,7 @@ export function IntegrationConfigDialog({
               <Label className="text-xs">Протокол подключения</Label>
               <Select
                 value={
-                  isCustomProto ||
-                  !SYSTEM_PROTOCOLS[selectedSystem]?.some((p) => p.value === proto)
+                  isCustomProto || !SYSTEM_PROTOCOLS[selectedSystem]?.some((p) => p.value === proto)
                     ? "custom"
                     : proto
                 }
@@ -642,8 +691,16 @@ export function IntegrationConfigDialog({
           {selectedSystem === "TNI" && (
             <div className="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-3">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-                {isTniPostgres ? <Database className="h-4 w-4" /> : <FolderTree className="h-4 w-4" />}
-                <span>{isTniPostgres ? "Параметры базы данных PostgreSQL TNI" : "Параметры хранилища TNI по SMB"}</span>
+                {isTniPostgres ? (
+                  <Database className="h-4 w-4" />
+                ) : (
+                  <FolderTree className="h-4 w-4" />
+                )}
+                <span>
+                  {isTniPostgres
+                    ? "Параметры базы данных PostgreSQL TNI"
+                    : "Параметры хранилища TNI по SMB"}
+                </span>
               </div>
               {isTniSmb && (
                 <div>
@@ -654,9 +711,12 @@ export function IntegrationConfigDialog({
                     placeholder="\\10.177.100.46\inventory-hub\data"
                     className="mt-1 font-mono text-xs bg-background"
                   />
-                  {errors.sharePath && <span className="text-xs text-destructive">{errors.sharePath}</span>}
+                  {errors.sharePath && (
+                    <span className="text-xs text-destructive">{errors.sharePath}</span>
+                  )}
                   <span className="mt-1 block text-[11px] text-muted-foreground">
-                    Укажите путь к каталогу с файлами инвентаризации TNI (.inv, .xml, sqlite хранилище).
+                    Укажите путь к каталогу с файлами инвентаризации TNI (.inv, .xml, sqlite
+                    хранилище).
                   </span>
                 </div>
               )}
@@ -670,7 +730,9 @@ export function IntegrationConfigDialog({
                       placeholder="tni"
                       className="mt-1 font-mono text-xs bg-background"
                     />
-                    {errors.database && <span className="text-xs text-destructive">{errors.database}</span>}
+                    {errors.database && (
+                      <span className="text-xs text-destructive">{errors.database}</span>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs">Схема данных</Label>
@@ -718,17 +780,15 @@ export function IntegrationConfigDialog({
                   {isTniSmb
                     ? "Учётные данные для доступа к SMB-папке"
                     : isTniPostgres
-                    ? "Учётные данные пользователя PostgreSQL"
-                    : "Авторизация и доступ"}
+                      ? "Учётные данные пользователя PostgreSQL"
+                      : "Авторизация и доступ"}
                 </span>
               </div>
               {!isTniSmb && !isTniPostgres && (
                 <div className="w-48">
                   <Select
                     value={authType}
-                    onValueChange={(v) =>
-                      setAuthType(v as "basic" | "token" | "agent" | "none")
-                    }
+                    onValueChange={(v) => setAuthType(v as "basic" | "token" | "agent" | "none")}
                   >
                     <SelectTrigger className="h-7 text-xs">
                       <SelectValue />
@@ -751,12 +811,12 @@ export function IntegrationConfigDialog({
                     {selectedSystem === "KSC"
                       ? "Внутренний пользователь KSC"
                       : selectedSystem === "AD"
-                      ? "Учётная запись (UPN или DN)"
-                      : isTniPostgres
-                      ? "Пользователь БД PostgreSQL"
-                      : isTniSmb
-                      ? "Логин для сетевой папки (domain\\user)"
-                      : "Имя пользователя"}
+                        ? "Учётная запись (UPN или DN)"
+                        : isTniPostgres
+                          ? "Пользователь БД PostgreSQL"
+                          : isTniSmb
+                            ? "Логин для сетевой папки (domain\\user)"
+                            : "Имя пользователя"}
                   </Label>
                   <Input
                     value={username}
@@ -765,12 +825,12 @@ export function IntegrationConfigDialog({
                       selectedSystem === "KSC"
                         ? "ksc_service_user"
                         : selectedSystem === "AD"
-                        ? "svc_inventory@sbyt.minsk.energo.net"
-                        : isTniPostgres
-                        ? "tni_reader"
-                        : isTniSmb
-                        ? "CORP\\svc_tni"
-                        : "service_admin"
+                          ? "svc_inventory@sbyt.minsk.energo.net"
+                          : isTniPostgres
+                            ? "tni_reader"
+                            : isTniSmb
+                              ? "CORP\\svc_tni"
+                              : "service_admin"
                     }
                     className="mt-1 font-mono text-xs"
                   />
@@ -830,8 +890,8 @@ export function IntegrationConfigDialog({
 
             {authType === "agent" && !isTniSmb && !isTniPostgres && (
               <div className="rounded border border-dashed border-border p-2.5 text-xs text-muted-foreground">
-                Аутентификация не требуется: сбор данных осуществляется внешней утилитой или скриптом
-                inventory-hub с прямым доступом к базе данных или файловой шаре.
+                Аутентификация не требуется: сбор данных осуществляется внешней утилитой или
+                скриптом inventory-hub с прямым доступом к базе данных или файловой шаре.
               </div>
             )}
           </div>
@@ -970,7 +1030,8 @@ export function IntegrationConfigDialog({
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Укажите, с какими подразделениями (OU) и контейнерами (CN) домена синхронизировать устройства и рабочие места:
+                Укажите, с какими подразделениями (OU) и контейнерами (CN) домена синхронизировать
+                устройства и рабочие места:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 {AD_CONTAINERS.map((cnt) => {
@@ -992,7 +1053,9 @@ export function IntegrationConfigDialog({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="font-mono text-[11px]">{cnt.value}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{cnt.label}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {cnt.label}
+                        </div>
                       </div>
                     </label>
                   );

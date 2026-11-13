@@ -14,7 +14,10 @@ export const Route = createFileRoute("/integrations")({
   head: () => ({
     meta: [
       { title: "Интеграции — CRM IT-парк" },
-      { name: "description", content: "Подключения к KSC, AD, TNI и MeshCentral и журнал проверок." },
+      {
+        name: "description",
+        content: "Подключения к KSC, AD, TNI и MeshCentral и журнал проверок.",
+      },
       { property: "og:title", content: "Интеграции — CRM IT-парк" },
       { property: "og:description", content: "Подключения к KSC, AD, TNI и MeshCentral." },
       { property: "og:type", content: "website" },
@@ -78,7 +81,12 @@ const INITIAL_INTEGRATIONS: IntegrationItem[] = [
   },
 ];
 
-type LogEntry = [timestamp: string, status: "успешно" | "ошибка", message: string, systemName: string];
+type LogEntry = [
+  timestamp: string,
+  status: "успешно" | "ошибка",
+  message: string,
+  systemName: string,
+];
 
 const INITIAL_LOGS: LogEntry[] = [
   ["01.11.2026 14:09:41", "успешно", "авторизация в KSC выполнена", "Kaspersky Security Center"],
@@ -99,7 +107,8 @@ const INITIAL_LOGS: LogEntry[] = [
   ["01.11.2026 11:44:48", "ошибка", "KSC отклонил учётные данные", "Kaspersky Security Center"],
 ];
 
-const btn = "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors";
+const btn =
+  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors";
 
 function formatTimestamp(): string {
   const now = new Date();
@@ -164,11 +173,12 @@ function Integrations() {
       setCheckingCode(null);
 
       // KSC domain auth special case check
-      const isDomainUser = item.username && (item.username.includes("@") || item.username.includes("\\"));
+      const isDomainUser =
+        item.username && (item.username.includes("@") || item.username.includes("\\"));
       const isSuccess = !(item.code === "KSC" && isDomainUser);
 
       setIntegrations((prev) =>
-        prev.map((i) => (i.code === item.code ? { ...i, ok: isSuccess } : i))
+        prev.map((i) => (i.code === item.code ? { ...i, ok: isSuccess } : i)),
       );
 
       const msg = isSuccess
@@ -212,7 +222,10 @@ function Integrations() {
           const hostDisplay = i.port ? `${i.host} :${i.port}` : i.host;
 
           return (
-            <div key={i.code} className="flex flex-col justify-between rounded-lg border bg-card p-5 shadow-sm transition-all hover:border-primary/40">
+            <div
+              key={i.code}
+              className="flex flex-col justify-between rounded-lg border bg-card p-5 shadow-sm transition-all hover:border-primary/40"
+            >
               <div>
                 <div className="flex items-start gap-3">
                   <span className="rounded-md bg-sidebar p-2.5 text-sidebar-foreground">
@@ -245,15 +258,13 @@ function Integrations() {
                   disabled={isChecking}
                   className={btn}
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isChecking ? "animate-spin text-primary" : ""}`} />
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${isChecking ? "animate-spin text-primary" : ""}`}
+                  />
                   <span>{isChecking ? "Проверка..." : "Проверить"}</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenEdit(i)}
-                  className={btn}
-                >
+                <button type="button" onClick={() => handleOpenEdit(i)} className={btn}>
                   <Settings className="h-3.5 w-3.5" />
                   <span>Изменить</span>
                 </button>
@@ -294,7 +305,8 @@ function Integrations() {
                     : btn
                 }
               >
-                {l} <span className="opacity-70">{logs.filter((x) => !k || x[1] === k).length}</span>
+                {l}{" "}
+                <span className="opacity-70">{logs.filter((x) => !k || x[1] === k).length}</span>
               </button>
             ))}
           </div>
