@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && eslint . && vitest run && vite build",
+    "verify": "tsc --noEmit && eslint . && vitest run && vite build"
   },
   "overrides": {
     "rolldown": "1.2.1"
